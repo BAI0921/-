@@ -25,18 +25,6 @@ if 'city' not in st.session_state:
 
 
 # --------------------------
-# 图片转base64
-# --------------------------
-def get_img_as_base64(file):
-    try:
-        with open(file, "rb") as f:
-            data = f.read()
-        return base64.b64encode(data).decode()
-    except FileNotFoundError:
-        return ""
-
-
-# --------------------------
 # 心知天气配置
 # --------------------------
 SENIVERSE_KEY = "SyBQ06H2yR2RIEJn3"
@@ -72,9 +60,6 @@ def seniverse_now(city):
     return None
 
 
-# --------------------------
-# 【新增】多日天气
-# --------------------------
 def seniverse_daily(city, days=3):
     params = {
         "key": SENIVERSE_KEY,
@@ -96,9 +81,6 @@ def seniverse_daily(city, days=3):
     return None
 
 
-# --------------------------
-# 【新增】AQI空气质量
-# --------------------------
 def seniverse_aqi(city):
     params = {
         "key": SENIVERSE_KEY,
@@ -121,9 +103,6 @@ def seniverse_aqi(city):
     return None
 
 
-# --------------------------
-# 天气图标映射（美化版）
-# --------------------------
 def get_weather_icon(text):
     icon_map = {
         "晴": "☀️",
@@ -144,9 +123,6 @@ def get_weather_icon(text):
     return "🌤️"
 
 
-# --------------------------
-# 智能建议
-# --------------------------
 def get_clothing_suggestion(temp):
     if temp >= 30:
         return "👕 建议穿着清凉透气的短袖、短裤，选择浅色衣物更凉快"
@@ -183,9 +159,6 @@ def get_outdoor_suggestion(weather_text, wind, temp):
         return "🏃 天气适宜，非常适合户外运动，记得及时补充水分"
 
 
-# --------------------------
-# 生活缴费 → 自动算碳
-# --------------------------
 def calculate_from_bill(electricity_bill=0, gas_bill=0, water_bill=0, heating_bill=0):
     price_electric = 0.56
     price_gas = 3.5
@@ -210,7 +183,6 @@ def forest_offset(total_carbon):
     return trees_needed
 
 
-# ========== 大兴安岭冷知识 ==========
 def get_daily_fact():
     facts = [
         "🌲 大兴安岭森林面积约 2500 万公顷，相当于 3 个北京市的面积",
@@ -227,7 +199,6 @@ def get_daily_fact():
     return random.choice(facts)
 
 
-# ========== 空气溯源 ==========
 def get_air_source_advice(wind_direction):
     north_winds = ["北风", "西北风", "西风", "东北风", "北", "西北", "西"]
     for w in north_winds:
@@ -236,9 +207,6 @@ def get_air_source_advice(wind_direction):
     return False, wind_direction
 
 
-# ###########################
-# 新加：天气与大兴安岭联动（只加这个，不动其他）
-# ###########################
 def link_to_daxinganling(temp, aqi, wind_dir):
     daxing_temp = 18.0
     tips = []
@@ -278,39 +246,35 @@ st.title("📊 大兴安岭环境监测平台")
 # 1. 大兴安岭气温分析
 # ==========================
 if menu == "大兴安岭气温分析":
-    try:
-        img_base64 = get_img_as_base64("daxinganling_bg.jpg")
-        if img_base64:
-            page_bg = f"""
-            <style>
-            .stApp {{
-                background-image: url("data:image/jpeg;base64,{img_base64}");
-                background-size: cover;
-                background-position: center;
-                background-attachment: fixed;
-            }}
-            .stApp::before {{
-                content: "";
-                position: fixed;
-                top:0; left:0;
-                width:100%; height:100%;
-                background-image: inherit;
-                background-size: cover;
-                background-position: center;
-                filter: blur(6px);
-                opacity: 0.7;
-                z-index: -1;
-            }}
-            .stMarkdown, .stHeader, .stSubheader, .stImage, .stSelectbox, .stTabs {{
-                background-color: rgba(255,255,255,0.85);
-                padding: 1rem;
-                border-radius: 0.5rem;
-            }}
-            </style>
-            """
-            st.markdown(page_bg, unsafe_allow_html=True)
-    except:
-        pass
+
+    # ✅ 背景图（云端稳定版）
+    st.markdown("""
+    <style>
+    .stApp {
+        background-image: url('static/daxinganling_bg.jpg');
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }
+    .stApp::before {
+        content: "";
+        position: fixed;
+        top:0; left:0;
+        width:100%; height:100%;
+        background-image: inherit;
+        background-size: cover;
+        background-position: center;
+        filter: blur(6px);
+        opacity: 0.7;
+        z-index: -1;
+    }
+    .stMarkdown, .stHeader, .stSubheader, .stImage, .stSelectbox, .stTabs {
+        background-color: rgba(255,255,255,0.85);
+        padding: 1rem;
+        border-radius: 0.5rem;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
     st.info(f"🌲 **今日·大兴安岭**\n\n{get_daily_fact()}")
 
@@ -331,18 +295,12 @@ if menu == "大兴安岭气温分析":
 
     if sub_menu == "2013-2017年气温统计分析":
         st.subheader("📈 2013-2017年大兴安岭气温对比与趋势")
-        try:
-            st.image("./2013-2017年大兴安岭气温对比图.png")
-        except:
-            st.warning("图片文件未找到，请确保文件在正确路径")
+        st.image("static/2013-2017年大兴安岭气温对比图.png")
 
     elif sub_menu == "分年气温时空变化图":
         st.subheader("🌍 分年气温时空变化图")
         year = st.selectbox("选择年份", [2013, 2014, 2015, 2016, 2017])
-        try:
-            st.image(f"./{year}年大兴安岭气温变化图.png")
-        except:
-            st.warning(f"{year}年气温变化图未找到")
+        st.image(f"static/{year}年大兴安岭气温变化图.png")
 
     elif sub_menu == "通量与多变量分析":
         st.subheader("🔍 通量数据与多变量分析")
@@ -350,26 +308,14 @@ if menu == "大兴安岭气温分析":
             "通量数据变化", "变量相关性", "因子载荷矩阵", "主成分分析"
         ])
         with tab1:
-            try:
-                st.image("./2017年大兴安岭站通量数据变化图.png")
-            except:
-                st.warning("通量数据图未找到")
+            st.image("static/2017年大兴安岭站通量数据变化图.png")
         with tab2:
-            try:
-                st.image("./correlation_heatmap.png")
-            except:
-                st.warning("相关性热力图未找到")
+            st.image("static/correlation_heatmap.png")
         with tab3:
-            try:
-                st.image("./factor_loadings_heatmap.png")
-            except:
-                st.warning("因子载荷矩阵图未找到")
+            st.image("static/factor_loadings_heatmap.png")
         with tab4:
-            try:
-                st.image("./factor_scores_timeseries.png")
-                st.image("./scree_plot.png")
-            except:
-                st.warning("PCA分析图未找到")
+            st.image("static/factor_scores_timeseries.png")
+            st.image("static/scree_plot.png")
 
     elif sub_menu == "🌲 生活缴费碳中和计算（新版）":
         st.subheader("♻️ 生活缴费一键算碳 · 大兴安岭碳中和方案")
@@ -410,14 +356,10 @@ if menu == "大兴安岭气温分析":
         st.markdown("---")
         st.markdown("### 📝 填写或修改账单金额")
 
-        elec_bill = st.number_input("💡 电费(元)", min_value=0, value=st.session_state.elec_bill, key="elec_input",
-                                    step=10)
-        gas_bill = st.number_input("🔥 燃气费(元)", min_value=0, value=st.session_state.gas_bill, key="gas_input",
-                                   step=10)
-        water_bill = st.number_input("🚰 水费(元)", min_value=0, value=st.session_state.water_bill, key="water_input",
-                                     step=5)
-        heat_bill = st.number_input("🏠 暖气费(元，无采暖填0)", min_value=0, value=st.session_state.heat_bill,
-                                    key="heat_input", step=50)
+        elec_bill = st.number_input("💡 电费(元)", min_value=0, value=st.session_state.elec_bill, key="elec_input", step=10)
+        gas_bill = st.number_input("🔥 燃气费(元)", min_value=0, value=st.session_state.gas_bill, key="gas_input", step=10)
+        water_bill = st.number_input("🚰 水费(元)", min_value=0, value=st.session_state.water_bill, key="water_input", step=5)
+        heat_bill = st.number_input("🏠 暖气费(元，无采暖填0)", min_value=0, value=st.session_state.heat_bill, key="heat_input", step=50)
 
         st.session_state.elec_bill = elec_bill
         st.session_state.gas_bill = gas_bill
@@ -473,45 +415,41 @@ if menu == "大兴安岭气温分析":
 # 2. 实时天气数据
 # ==========================
 elif menu == "实时天气数据":
-    try:
-        img_base64 = get_img_as_base64("weather_bg.jpg")
-        if img_base64:
-            page_bg = f"""
-            <style>
-            .stApp {{
-                background-image: url("data:image/jpeg;base64,{img_base64}");
-                background-size: cover;
-                background-position: center;
-                background-attachment: fixed;
-            }}
-            .stApp::before {{
-                content: "";
-                position: fixed;
-                top:0; left:0;
-                width:100%; height:100%;
-                background-image: inherit;
-                background-size: cover;
-                background-position: center;
-                filter: blur(5px);
-                opacity: 0.5;
-                background-color: rgba(0,0,0,0.3);
-                z-index: -1;
-            }}
-            .stMetric, .stTextInput {{
-                background-color: rgba(255,255,255,0.95);
-                padding: 0.8rem;
-                border-radius: 0.6rem;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            }}
-            .stMarkdown, .stHeader, .stSubheader {{
-                color: #000000 !important;
-                font-weight: 600 !important;
-            }}
-            </style>
-            """
-            st.markdown(page_bg, unsafe_allow_html=True)
-    except:
-        pass
+
+    # ✅ 背景图（云端稳定版）
+    st.markdown("""
+    <style>
+    .stApp {
+        background-image: url('static/weather_bg.jpg');
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }
+    .stApp::before {
+        content: "";
+        position: fixed;
+        top:0; left:0;
+        width:100%; height:100%;
+        background-image: inherit;
+        background-size: cover;
+        background-position: center;
+        filter: blur(5px);
+        opacity: 0.5;
+        background-color: rgba(0,0,0,0.3);
+        z-index: -1;
+    }
+    .stMetric, .stTextInput {
+        background-color: rgba(255,255,255,0.95);
+        padding: 0.8rem;
+        border-radius: 0.6rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .stMarkdown, .stHeader, .stSubheader {
+        color: #000000 !important;
+        font-weight: 600 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
     st.header("🌤 全球实时天气查询")
     st.subheader("📍 当前位置天气（可GPS定位）")
@@ -561,9 +499,6 @@ elif menu == "实时天气数据":
         with col1:
             st.metric("💨 风速", f"{w_current['wind']} m/s")
 
-        # ======================
-        # 【新增】AQI 空气质量
-        # ======================
         st.divider()
         st.subheader("🌫️ 空气质量 AQI")
         if aqi_data:
@@ -588,9 +523,6 @@ elif menu == "实时天气数据":
             aqi = 70
             st.info("ℹ️ 该城市暂无AQI数据")
 
-        # ======================
-        # 【美化版】未来3日天气预报
-        # ======================
         st.divider()
         st.subheader("📅 未来3日天气预报")
         if daily_forecast:
@@ -619,7 +551,6 @@ elif menu == "实时天气数据":
         wind_direction = w_current["wind_dir"]
         is_from_daxing, dir_name = get_air_source_advice(wind_direction)
 
-        # ########## 这里加入联动 ##########
         for t in link_to_daxinganling(w_current["temp"], aqi, wind_direction):
             if "🍃" in t or "✅" in t or "🌡" in t:
                 st.success(t)
@@ -665,9 +596,6 @@ elif menu == "实时天气数据":
             with col1:
                 st.metric("💨 风速", f"{w_other['wind']} m/s")
 
-            # ======================
-            # 新增：查询城市也带 AQI + 美化多日天气
-            # ======================
             st.divider()
             st.subheader("🌫️ 空气质量 AQI")
             if aqi_other:
