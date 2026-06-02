@@ -250,28 +250,12 @@ if menu == "大兴安岭气温分析":
     # ✅ 背景图（云端稳定版）
     st.markdown("""
     <style>
-    .stApp {
-        background-image: url('static/daxinganling_bg.jpg');
-        background-size: cover;
-        background-position: center;
-        background-attachment: fixed;
-    }
-    .stApp::before {
-        content: "";
-        position: fixed;
-        top:0; left:0;
-        width:100%; height:100%;
-        background-image: inherit;
-        background-size: cover;
-        background-position: center;
-        filter: blur(6px);
-        opacity: 0.7;
-        z-index: -1;
-    }
-    .stMarkdown, .stHeader, .stSubheader, .stImage, .stSelectbox, .stTabs {
-        background-color: rgba(255,255,255,0.85);
-        padding: 1rem;
-        border-radius: 0.5rem;
+    [data-testid="stAppViewContainer"] {
+        background-image: url("static/daxinganling_bg.jpg") !important;
+        background-size: cover !important;
+        background-position: center !important;
+        background-repeat: no-repeat !important;
+        background-attachment: fixed !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -419,34 +403,12 @@ elif menu == "实时天气数据":
     # ✅ 背景图（云端稳定版）
     st.markdown("""
     <style>
-    .stApp {
-        background-image: url('static/weather_bg.jpg');
-        background-size: cover;
-        background-position: center;
-        background-attachment: fixed;
-    }
-    .stApp::before {
-        content: "";
-        position: fixed;
-        top:0; left:0;
-        width:100%; height:100%;
-        background-image: inherit;
-        background-size: cover;
-        background-position: center;
-        filter: blur(5px);
-        opacity: 0.5;
-        background-color: rgba(0,0,0,0.3);
-        z-index: -1;
-    }
-    .stMetric, .stTextInput {
-        background-color: rgba(255,255,255,0.95);
-        padding: 0.8rem;
-        border-radius: 0.6rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    .stMarkdown, .stHeader, .stSubheader {
-        color: #000000 !important;
-        font-weight: 600 !important;
+    [data-testid="stAppViewContainer"] {
+        background-image: url("static/weather_bg.jpg") !important;
+        background-size: cover !important;
+        background-position: center !important;
+        background-repeat: no-repeat !important;
+        background-attachment: fixed !important;
     }
     </style>
     """, unsafe_allow_html=True)
