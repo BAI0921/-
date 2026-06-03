@@ -10,10 +10,33 @@ from streamlit_geolocation import streamlit_geolocation
 import base64
 import random
 from datetime import datetime
+from pathlib import Path
 
 warnings.filterwarnings('ignore')
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
+
+# ========== 获取项目根目录和 static 目录 ==========
+CURRENT_DIR = Path(__file__).parent
+STATIC_DIR = CURRENT_DIR / "static"
+IMG_DIR = CURRENT_DIR / "img"  # 新增图片目录：所有png都在img
+
+def get_base64_of_file(filename):
+    """读取 static 目录下的背景图片"""
+    file_path = STATIC_DIR / filename
+    if not file_path.exists():
+        st.warning(f"图片文件不存在: {filename}")
+        return ""
+    with open(file_path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
+
+def show_image(filename, caption=None, use_column_width=True):
+    """从 img 文件夹加载图表PNG"""
+    img_path = IMG_DIR / filename
+    if img_path.exists():
+        st.image(str(img_path), caption=caption, use_column_width=use_column_width)
+    else:
+        st.warning(f"图片 {filename} 加载失败，路径：{img_path}")
 
 # ========== 初始化 session_state ==========
 if 'agreed_carbon' not in st.session_state:
@@ -23,7 +46,6 @@ if 'weather_history' not in st.session_state:
 if 'city' not in st.session_state:
     st.session_state.city = "南通"
 
-
 # --------------------------
 # 心知天气配置
 # --------------------------
@@ -31,7 +53,6 @@ SENIVERSE_KEY = "SyBQ06H2yR2RIEJn3"
 NOW_URL = "https://api.seniverse.com/v3/weather/now.json"
 DAILY_URL = "https://api.seniverse.com/v3/weather/daily.json"
 AQI_URL = "https://api.seniverse.com/v3/air/now.json"
-
 
 def seniverse_now(city):
     params = {
@@ -59,7 +80,6 @@ def seniverse_now(city):
         st.error(f"请求失败：{e}")
     return None
 
-
 def seniverse_daily(city, days=3):
     params = {
         "key": SENIVERSE_KEY,
@@ -79,7 +99,6 @@ def seniverse_daily(city, days=3):
     except:
         return None
     return None
-
 
 def seniverse_aqi(city):
     params = {
@@ -102,7 +121,6 @@ def seniverse_aqi(city):
         return None
     return None
 
-
 def get_weather_icon(text):
     icon_map = {
         "晴": "☀️",
@@ -122,7 +140,6 @@ def get_weather_icon(text):
             return icon_map[key]
     return "🌤️"
 
-
 def get_clothing_suggestion(temp):
     if temp >= 30:
         return "👕 建议穿着清凉透气的短袖、短裤，选择浅色衣物更凉快"
@@ -135,7 +152,6 @@ def get_clothing_suggestion(temp):
     else:
         return "🧥 建议穿着羽绒服/厚棉衣，搭配围巾手套，做好防寒"
 
-
 def get_sunscreen_suggestion(weather_text):
     sunny_words = ["晴", "多云"]
     if any(word in weather_text for word in sunny_words):
@@ -144,7 +160,6 @@ def get_sunscreen_suggestion(weather_text):
         return "☀️ 紫外线较弱，可根据情况决定是否防晒，敏感肌建议基础防护"
     else:
         return "☀️ 紫外线较弱，无需特别防晒，雨天记得带伞"
-
 
 def get_outdoor_suggestion(weather_text, wind, temp):
     if "雨" in weather_text or "雷" in weather_text:
@@ -157,7 +172,6 @@ def get_outdoor_suggestion(weather_text, wind, temp):
         return "🏃 气温过低，建议做好保暖再进行短时间户外活动"
     else:
         return "🏃 天气适宜，非常适合户外运动，记得及时补充水分"
-
 
 def calculate_from_bill(electricity_bill=0, gas_bill=0, water_bill=0, heating_bill=0):
     price_electric = 0.56
@@ -177,11 +191,9 @@ def calculate_from_bill(electricity_bill=0, gas_bill=0, water_bill=0, heating_bi
     return round(carbon_electricity, 2), round(carbon_gas, 2), round(carbon_water, 2), round(carbon_heating, 2), round(
         total, 2)
 
-
 def forest_offset(total_carbon):
     trees_needed = round(total_carbon / 12, 1)
     return trees_needed
-
 
 def get_daily_fact():
     facts = [
@@ -198,14 +210,12 @@ def get_daily_fact():
     ]
     return random.choice(facts)
 
-
 def get_air_source_advice(wind_direction):
     north_winds = ["北风", "西北风", "西风", "东北风", "北", "西北", "西"]
     for w in north_winds:
         if w in wind_direction:
             return True, wind_direction
     return False, wind_direction
-
 
 def link_to_daxinganling(temp, aqi, wind_dir):
     daxing_temp = 18.0
@@ -226,7 +236,6 @@ def link_to_daxinganling(temp, aqi, wind_dir):
         tips.append("🌡 气温适中 → 处于大兴安岭生态气候影响范围内")
     return tips
 
-
 # --------------------------
 # 侧边栏
 # --------------------------
@@ -246,30 +255,22 @@ st.title("📊 大兴安岭环境监测平台")
 # 1. 大兴安岭气温分析
 # ==========================
 if menu == "大兴安岭气温分析":
-
-    # 大兴安岭页面背景（你自己的原图）
+    # 【修复：删掉多余dashboard/static，直接读取static下的图】
+    bg_path = r"C:\环境监测\static\daxinganling_bg.png"
     import base64
 
-
-    def get_base64_of_file(file_path):
-        with open(file_path, "rb") as f:
-            data = f.read()
-        return base64.b64encode(data).decode()
-
-
-    bg_img = get_base64_of_file("static/daxinganling_bg.jpg")
+    with open(bg_path, "rb") as f:
+        bg_data = base64.b64encode(f.read()).decode()
 
     st.markdown(f"""
     <style>
-    [data-testid="stAppViewContainer"] {{
-        background-image: url("data:image/jpeg;base64,{bg_img}") !important;
-        background-size: cover !important;
-        background-position: center !important;
-        background-repeat: no-repeat !important;
-        background-attachment: fixed !important;
+    [data-testid="stAppViewContainer"]{{
+    background-image:url("data:image/png;base64,{bg_data}");
+    background-size:cover;
     }}
     </style>
     """, unsafe_allow_html=True)
+
     st.info(f"🌲 **今日·大兴安岭**\n\n{get_daily_fact()}")
 
     st.markdown("""
@@ -289,12 +290,12 @@ if menu == "大兴安岭气温分析":
 
     if sub_menu == "2013-2017年气温统计分析":
         st.subheader("📈 2013-2017年大兴安岭气温对比与趋势")
-        st.image("static/2013-2017年大兴安岭气温对比图.png")
+        show_image("2013-2017年大兴安岭气温对比图.png")
 
     elif sub_menu == "分年气温时空变化图":
         st.subheader("🌍 分年气温时空变化图")
         year = st.selectbox("选择年份", [2013, 2014, 2015, 2016, 2017])
-        st.image(f"static/{year}年大兴安岭气温变化图.png")
+        show_image(f"{year}年大兴安岭气温变化图.png")
 
     elif sub_menu == "通量与多变量分析":
         st.subheader("🔍 通量数据与多变量分析")
@@ -302,14 +303,14 @@ if menu == "大兴安岭气温分析":
             "通量数据变化", "变量相关性", "因子载荷矩阵", "主成分分析"
         ])
         with tab1:
-            st.image("static/2017年大兴安岭站通量数据变化图.png")
+            show_image("2017年大兴安岭站通量数据变化图.png")
         with tab2:
-            st.image("static/correlation_heatmap.png")
+            show_image("correlation_heatmap.png")
         with tab3:
-            st.image("static/factor_loadings_heatmap.png")
+            show_image("factor_loadings_heatmap.png")
         with tab4:
-            st.image("static/factor_scores_timeseries.png")
-            st.image("static/scree_plot.png")
+            show_image("factor_scores_timeseries.png")
+            show_image("scree_plot.png")
 
     elif sub_menu == "🌲 生活缴费碳中和计算（新版）":
         st.subheader("♻️ 生活缴费一键算碳 · 大兴安岭碳中和方案")
@@ -350,10 +351,14 @@ if menu == "大兴安岭气温分析":
         st.markdown("---")
         st.markdown("### 📝 填写或修改账单金额")
 
-        elec_bill = st.number_input("💡 电费(元)", min_value=0, value=st.session_state.elec_bill, key="elec_input", step=10)
-        gas_bill = st.number_input("🔥 燃气费(元)", min_value=0, value=st.session_state.gas_bill, key="gas_input", step=10)
-        water_bill = st.number_input("🚰 水费(元)", min_value=0, value=st.session_state.water_bill, key="water_input", step=5)
-        heat_bill = st.number_input("🏠 暖气费(元，无采暖填0)", min_value=0, value=st.session_state.heat_bill, key="heat_input", step=50)
+        elec_bill = st.number_input("💡 电费(元)", min_value=0, value=st.session_state.elec_bill, key="elec_input",
+                                    step=10)
+        gas_bill = st.number_input("🔥 燃气费(元)", min_value=0, value=st.session_state.gas_bill, key="gas_input",
+                                   step=10)
+        water_bill = st.number_input("🚰 水费(元)", min_value=0, value=st.session_state.water_bill, key="water_input",
+                                     step=5)
+        heat_bill = st.number_input("🏠 暖气费(元，无采暖填0)", min_value=0, value=st.session_state.heat_bill,
+                                    key="heat_input", step=50)
 
         st.session_state.elec_bill = elec_bill
         st.session_state.gas_bill = gas_bill
@@ -409,30 +414,21 @@ if menu == "大兴安岭气温分析":
 # 2. 实时天气数据
 # ==========================
 elif menu == "实时天气数据":
-
-    # 天气页面背景（你自己的原图）
+    bg_path = r"C:\环境监测\static\weather_bg.png"
     import base64
 
-
-    def get_base64_of_file(file_path):
-        with open(file_path, "rb") as f:
-            data = f.read()
-        return base64.b64encode(data).decode()
-
-
-    bg_img = get_base64_of_file("static/weather_bg.jpg")
+    with open(bg_path, "rb") as f:
+        bg_data = base64.b64encode(f.read()).decode()
 
     st.markdown(f"""
     <style>
-    [data-testid="stAppViewContainer"] {{
-        background-image: url("data:image/jpeg;base64,{bg_img}") !important;
-        background-size: cover !important;
-        background-position: center !important;
-        background-repeat: no-repeat !important;
-        background-attachment: fixed !important;
+    [data-testid="stAppViewContainer"]{{
+    background-image:url("data:image/png;base64,{bg_data}");
+    background-size:cover;
     }}
     </style>
     """, unsafe_allow_html=True)
+
     st.header("🌤 全球实时天气查询")
     st.subheader("📍 当前位置天气（可GPS定位）")
 
