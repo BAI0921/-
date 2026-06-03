@@ -247,19 +247,28 @@ st.title("📊 大兴安岭环境监测平台")
 # ==========================
 if menu == "大兴安岭气温分析":
 
-    # ✅ 背景图（云端稳定版）
-    st.markdown("""
+    import base64
+
+
+    def get_base64_of_file(file_path):
+        with open(file_path, "rb") as f:
+            data = f.read()
+        return base64.b64encode(data).decode()
+
+
+    bg_img = get_base64_of_file("static/daxinganling_bg.jpg")
+
+    st.markdown(f"""
     <style>
-    [data-testid="stAppViewContainer"] {
-        background-image: url("static/daxinganling_bg.jpg") !important;
+    [data-testid="stAppViewContainer"] {{
+        background-image: url("data:image/jpeg;base64,{bg_img}") !important;
         background-size: cover !important;
         background-position: center !important;
         background-repeat: no-repeat !important;
         background-attachment: fixed !important;
-    }
+    }}
     </style>
     """, unsafe_allow_html=True)
-
     st.info(f"🌲 **今日·大兴安岭**\n\n{get_daily_fact()}")
 
     st.markdown("""
@@ -400,19 +409,28 @@ if menu == "大兴安岭气温分析":
 # ==========================
 elif menu == "实时天气数据":
 
-    # ✅ 背景图（云端稳定版）
-    st.markdown("""
+    import base64
+
+
+    def get_base64_of_file(file_path):
+        with open(file_path, "rb") as f:
+            data = f.read()
+        return base64.b64encode(data).decode()
+
+
+    bg_img = get_base64_of_file("static/weather_bg.jpg")
+
+    st.markdown(f"""
     <style>
-    [data-testid="stAppViewContainer"] {
-        background-image: url("static/weather_bg.jpg") !important;
+    [data-testid="stAppViewContainer"] {{
+        background-image: url("data:image/jpeg;base64,{bg_img}") !important;
         background-size: cover !important;
         background-position: center !important;
         background-repeat: no-repeat !important;
         background-attachment: fixed !important;
-    }
+    }}
     </style>
     """, unsafe_allow_html=True)
-
     st.header("🌤 全球实时天气查询")
     st.subheader("📍 当前位置天气（可GPS定位）")
 
