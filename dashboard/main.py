@@ -10,33 +10,28 @@ from streamlit_geolocation import streamlit_geolocation
 import base64
 import random
 from datetime import datetime
-from pathlib import Path
 
 warnings.filterwarnings('ignore')
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
 
-# ========== 获取项目根目录和 static 目录 ==========
-CURRENT_DIR = Path(__file__).parent
-STATIC_DIR = CURRENT_DIR / "static"
-IMG_DIR = CURRENT_DIR / "img"  # 新增图片目录：所有png都在img
+# ========== Gitee 图片配置 ==========
+GITEE_RAW_URL = "https://gitee.com/candlelight-rain-safety/proj-/raw/master/static/"
 
-def get_base64_of_file(filename):
-    """读取 static 目录下的背景图片"""
-    file_path = STATIC_DIR / filename
-    if not file_path.exists():
-        st.warning(f"图片文件不存在: {filename}")
+def get_bg_base64_from_url(img_url):
+    """从 URL 获取图片并转为 base64（用于背景图）"""
+    try:
+        response = requests.get(img_url, timeout=10)
+        if response.status_code == 200:
+            return base64.b64encode(response.content).decode()
         return ""
-    with open(file_path, "rb") as f:
-        return base64.b64encode(f.read()).decode()
+    except:
+        return ""
 
 def show_image(filename, caption=None, use_column_width=True):
-    """从 img 文件夹加载图表PNG"""
-    img_path = IMG_DIR / filename
-    if img_path.exists():
-        st.image(str(img_path), caption=caption, use_column_width=use_column_width)
-    else:
-        st.warning(f"图片 {filename} 加载失败，路径：{img_path}")
+    """使用 Gitee raw 链接显示图片"""
+    img_url = GITEE_RAW_URL + filename
+    st.image(img_url, caption=caption, use_column_width=use_column_width)
 
 # ========== 初始化 session_state ==========
 if 'agreed_carbon' not in st.session_state:
@@ -255,21 +250,20 @@ st.title("📊 大兴安岭环境监测平台")
 # 1. 大兴安岭气温分析
 # ==========================
 if menu == "大兴安岭气温分析":
-    # 【修复：删掉多余dashboard/static，直接读取static下的图】
-    bg_path = r"C:\环境监测\static\daxinganling_bg.png"
-    import base64
-
-    with open(bg_path, "rb") as f:
-        bg_data = base64.b64encode(f.read()).decode()
-
-    st.markdown(f"""
-    <style>
-    [data-testid="stAppViewContainer"]{{
-    background-image:url("data:image/png;base64,{bg_data}");
-    background-size:cover;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
+    # 从 Gitee raw 链接加载背景图
+    bg_url = GITEE_RAW_URL + "daxinganling_bg.jpg"
+    bg_data = get_bg_base64_from_url(bg_url)
+    if bg_data:
+        st.markdown(f"""
+        <style>
+        [data-testid="stAppViewContainer"]{{
+            background-image: url("data:image/jpeg;base64,{bg_data}");
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }}
+        </style>
+        """, unsafe_allow_html=True)
 
     st.info(f"🌲 **今日·大兴安岭**\n\n{get_daily_fact()}")
 
@@ -414,20 +408,20 @@ if menu == "大兴安岭气温分析":
 # 2. 实时天气数据
 # ==========================
 elif menu == "实时天气数据":
-    bg_path = r"C:\环境监测\static\weather_bg.png"
-    import base64
-
-    with open(bg_path, "rb") as f:
-        bg_data = base64.b64encode(f.read()).decode()
-
-    st.markdown(f"""
-    <style>
-    [data-testid="stAppViewContainer"]{{
-    background-image:url("data:image/png;base64,{bg_data}");
-    background-size:cover;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
+    # 从 Gitee raw 链接加载背景图
+    bg_url = GITEE_RAW_URL + "weather_bg.jpg"
+    bg_data = get_bg_base64_from_url(bg_url)
+    if bg_data:
+        st.markdown(f"""
+        <style>
+        [data-testid="stAppViewContainer"]{{
+            background-image: url("data:image/jpeg;base64,{bg_data}");
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }}
+        </style>
+        """, unsafe_allow_html=True)
 
     st.header("🌤 全球实时天气查询")
     st.subheader("📍 当前位置天气（可GPS定位）")
