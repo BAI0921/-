@@ -251,13 +251,13 @@ st.title("📊 大兴安岭环境监测平台")
 # ==========================
 if menu == "大兴安岭气温分析":
     # 从 Gitee raw 链接加载背景图
-    bg_url = GITEE_RAW_URL + "daxinganling_bg.jpg"
+    bg_url = GITEE_RAW_URL + "daxinganling_bg.png"
     bg_data = get_bg_base64_from_url(bg_url)
     if bg_data:
         st.markdown(f"""
         <style>
         [data-testid="stAppViewContainer"]{{
-            background-image: url("data:image/jpeg;base64,{bg_data}");
+            background-image: url("data:image/png;base64,{bg_data}");
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
@@ -409,13 +409,13 @@ if menu == "大兴安岭气温分析":
 # ==========================
 elif menu == "实时天气数据":
     # 从 Gitee raw 链接加载背景图
-    bg_url = GITEE_RAW_URL + "weather_bg.jpg"
+    bg_url = GITEE_RAW_URL + "weather_bg.png"
     bg_data = get_bg_base64_from_url(bg_url)
     if bg_data:
         st.markdown(f"""
         <style>
         [data-testid="stAppViewContainer"]{{
-            background-image: url("data:image/jpeg;base64,{bg_data}");
+            background-image: url("data:image/png;base64,{bg_data}");
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
