@@ -17,8 +17,8 @@ plt.rcParams['axes.unicode_minus'] = False
 
 # ====================== 【重要】替换成你的阿里云图片链接 ======================
 ALIYUN_BG1 = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/static/daxinganling_bg.png"
-ALIYUN_BG2 = "https://baruobing.oss-cn-hangzhou.aliyuncs.com/static/static/weather_bg.png"
-ALIYUN_STATIC = "https://baruobing.oss-cn-hangzhou.aliyuncs.com/static/static/"
+ALIYUN_BG2 = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/static/weather_bg.png"
+ALIYUN_STATIC = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/static/"
 # ===========================================================================
 
 def set_background(img_url):
