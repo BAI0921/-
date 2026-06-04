@@ -392,9 +392,14 @@ elif menu == "实时天气数据":
                 else:
                     st.sidebar.error("定位成功，但获取天气信息失败")
             else:
-                st.sidebar.warning("未获取到位置信息，请检查是否允许浏览器定位权限")
+                    st.sidebar.error("❌ 定位失败，未获取到位置信息")
+                    st.sidebar.info("📱 请按以下步骤开启定位权限：\n\n"
+                                    "• iPhone：设置 → 隐私与安全性 → 定位服务 → 找到你的浏览器 → 允许\n\n"
+                                    "• 安卓：设置 → 应用 → 浏览器 → 权限 → 位置 → 允许\n\n"
+                                    "• 完成后刷新页面，点击'允许'弹窗")
         except Exception as e:
-            st.sidebar.error(f"定位功能出错：{e}")
+                st.sidebar.error(f"定位出错：{e}")
+                st.sidebar.info("💡 提示：请检查手机GPS是否开启，或复制网址到系统浏览器打开")
 
     st.sidebar.subheader("📚 最近查询")
     for i, city in enumerate(st.session_state.weather_history[-5:]):
