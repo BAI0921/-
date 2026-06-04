@@ -21,13 +21,16 @@ ALIYUN_BG2 = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/static/weat
 ALIYUN_STATIC = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/static/"
 # ===========================================================================
 
+from urllib.parse import quote
+
 def set_background(img_url):
-    # 直接css引用阿里云图片地址，不再用requests下载转base64（解决云端请求超时、DOM崩溃）
+    # CSS背景链接中文编码
+    safe_url = quote(img_url, safe=':/')
     st.markdown(f"""
     <style>
     [data-testid="stAppViewContainer"] {{
-        background-image: url("{img_url}");
-        background-size: cover !important;     /* cover：等比例铺满，不变形；要全屏拉伸改成100% 100% */
+        background-image: url("{safe_url}");
+        background-size: cover !important;
         background-position: center !important;
         background-attachment: fixed !important;
         background-repeat: no-repeat !important;
