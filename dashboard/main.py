@@ -335,13 +335,16 @@ elif menu == "实时天气数据":
     st.subheader("📍 当前位置天气（可GPS定位，http部署定位失效请手动输城市）")
 
     # GPS定位
+    # GPS定位 —— 修复版
     try:
         loc = streamlit_geolocation()
-        lat, lon = loc.get("latitude"), loc.get("longitude")
-        if lat and lon:
-            with st.spinner("定位获取天气..."):
-                w = seniverse_now(f"{lon:.4f},{lat:.4f}")
-            if w: st.session_state.city = w["name"]
+        if loc and loc.get("latitude") and loc.get("longitude"):
+            lat = loc["latitude"]
+            lon = loc["longitude"]
+            with st.spinner("正在定位..."):
+                w = seniverse_now(f"{lat},{lon}")
+            if w and w.get("name"):
+                st.session_state.city = w["name"]
     except Exception:
         pass
 
