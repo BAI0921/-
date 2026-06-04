@@ -416,16 +416,22 @@ elif menu == "实时天气数据":
     st.divider()
     st.subheader("🔍 查询其他城市")
     city_in = st.text_input("输入城市名：")
+    # ==========只替换查询城市内部这段，上面所有代码保留原样==========
     if city_in:
         with st.spinner(f"获取 {city_in} 天气..."):
             wo = seniverse_now(city_in)
-            do = seniverse_daily(city_in,3)
+            do = seniverse_daily(city_in, 3)
             ao = seniverse_aqi(city_in)
         if wo:
-            # 1.基础天气信息
-            st.metric("🏙️ 城市",wo["name"])
-            st.metric("🌡️ 温度",f"{wo['temp']}℃")
-            st.metric("🌤️ 天气",wo["text"])
+            # 【修改：城市、温度、天气横向并排】
+            col_base = st.columns(3)
+            with col_base[0]:
+                st.metric("🏙️ 城市", wo["name"])
+            with col_base[1]:
+                st.metric("🌡️ 温度", f"{wo['temp']}℃")
+            with col_base[2]:
+                st.metric("🌤️ 天气", wo["text"])
+
             tmp_aqi = ao["aqi"] if ao else 70
 
             # 2.AQI空气质量模块（和主页统一）
@@ -433,23 +439,27 @@ elif menu == "实时天气数据":
             st.subheader("🌫️ 空气质量 AQI")
             if ao:
                 aq, ql, pm = ao["aqi"], ao["quality"], ao["pm25"]
-                ca1,ca2,ca3=st.columns(3)
-                ca1.metric("AQI",aq)
-                ca2.metric("等级",ql)
-                ca3.metric("PM2.5",pm)
-                if ql=="优":st.success("✅ 空气优秀，适合户外运动")
-                elif ql=="良":st.info("✅ 空气良好")
-                elif "轻度" in ql:st.warning("⚠️ 轻度污染，敏感人群减少外出")
-                else:st.error("❌ 污染严重，避免外出")
+                ca1, ca2, ca3 = st.columns(3)
+                ca1.metric("AQI", aq)
+                ca2.metric("等级", ql)
+                ca3.metric("PM2.5", pm)
+                if ql == "优":
+                    st.success("✅ 空气优秀，适合户外运动")
+                elif ql == "良":
+                    st.info("✅ 空气良好")
+                elif "轻度" in ql:
+                    st.warning("⚠️ 轻度污染，敏感人群减少外出")
+                else:
+                    st.error("❌ 污染严重，避免外出")
             else:
                 st.info("ℹ️ 暂无AQI数据")
 
-            #3.未来三天预报（补齐缺失模块）
+            # 3.未来三天预报（补齐缺失模块）
             st.divider()
             st.subheader("📅 未来3天预报")
             if do:
-                cols=st.columns(3)
-                for i,d in enumerate(do):
+                cols = st.columns(3)
+                for i, d in enumerate(do):
                     with cols[i]:
                         st.markdown(f"""
                         <div style='text-align:center'>
@@ -458,9 +468,9 @@ elif menu == "实时天气数据":
                         {d['text_day']}<br>
                         {d['low']}~{d['high']}℃
                         </div>
-                        """,unsafe_allow_html=True)
+                        """, unsafe_allow_html=True)
 
-            #4.生态联动提示
+            # 4.生态联动提示
             st.divider()
             st.subheader("🌲 大兴安岭生态联动")
             tips_in = link_to_daxinganling(wo["temp"], tmp_aqi, wo["wind_dir"])
@@ -470,12 +480,12 @@ elif menu == "实时天气数据":
                 else:
                     st.info(t)
 
-            #5.生活建议【重点补齐：穿搭+防晒+户外三条提示，和首页完全一致】
+            # 5.生活建议【重点补齐：穿搭+防晒+户外三条提示，和首页完全一致】
             st.divider()
             st.subheader("💡 今日生活建议")
             st.info(get_clothing_suggestion(wo["temp"]))
             st.info(get_sunscreen_suggestion(wo["text"]))
-            st.info(get_outdoor_suggestion(wo["text"],wo["wind"],wo["temp"]))
+            st.info(get_outdoor_suggestion(wo["text"], wo["wind"], wo["temp"]))
 
         else:
             st.warning("未找到该城市天气")
