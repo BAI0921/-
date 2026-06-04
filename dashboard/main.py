@@ -30,9 +30,13 @@ def set_background(img_url):
             <style>
             .stApp {{
                 background-image: url(data:image/png;base64,{b64});
-                background-size: cover;
-                background-position: center;
-                background-attachment: fixed;
+                background-size: 100% 100% !important;   /* 宽度100% + 高度100% */
+                background-position: center !important;
+                background-attachment: fixed !important;
+                background-repeat: no-repeat !important;
+                width: 100% !important;                /* 容器宽度100% */
+                height: 100vh !important;               /* 容器高度=屏幕高度 */
+                min-height: 100vh !important;
                 background-color: transparent !important;
             }}
             .block-container {{
