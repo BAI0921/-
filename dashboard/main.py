@@ -22,31 +22,25 @@ ALIYUN_STATIC = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/static/"
 # ===========================================================================
 
 def set_background(img_url):
-    try:
-        res = requests.get(img_url, timeout=10)
-        if res.status_code == 200:
-            b64 = base64.b64encode(res.content).decode()
-            st.markdown(f"""
-            <style>
-            .stApp {{
-                background-image: url(data:image/png;base64,{b64});
-                background-size: 100% 100% !important;   /* 宽度100% + 高度100% */
-                background-position: center !important;
-                background-attachment: fixed !important;
-                background-repeat: no-repeat !important;
-                width: 100% !important;                /* 容器宽度100% */
-                height: 100vh !important;               /* 容器高度=屏幕高度 */
-                min-height: 100vh !important;
-                background-color: transparent !important;
-            }}
-            .block-container {{
-                background: transparent !important;
-            }}
-            </style>
-            """, unsafe_allow_html=True)
-    except:
-        pass
-
+    # 直接css引用阿里云图片地址，不再用requests下载转base64（解决云端请求超时、DOM崩溃）
+    st.markdown(f"""
+    <style>
+    [data-testid="stAppViewContainer"] {{
+        background-image: url("{img_url}");
+        background-size: cover !important;     /* cover：等比例铺满，不变形；要全屏拉伸改成100% 100% */
+        background-position: center !important;
+        background-attachment: fixed !important;
+        background-repeat: no-repeat !important;
+        min-height:100vh !important;
+    }}
+    [data-testid="stHeader"]{{
+        background:transparent !important;
+    }}
+    .block-container {{
+        background-color: rgba(0,0,0,0.05) !important;
+    }}
+    </style>
+    """, unsafe_allow_html=True)
 # ========== 初始化 session_state ==========
 if 'agreed_carbon' not in st.session_state:
     st.session_state.agreed_carbon = False
