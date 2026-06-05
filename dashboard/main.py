@@ -423,6 +423,12 @@ elif menu == "实时天气数据":
             st.info("GPS权限未开启，默认城市：南通")
             st.session_state.city = "南通"
             st.session_state.ip_location_done = True
+            
+            st.divider()
+            select_city = st.selectbox("手动切换城市", ["南通", "南京", "苏州", "无锡", "泰州", "上海", "杭州", "北京"])
+            if select_city != st.session_state.city:
+                st.session_state.city = select_city
+                st.rerun()
 
     # ========== 侧边栏 历史记录 ==========
     st.sidebar.subheader("📚 最近查询")
