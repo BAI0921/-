@@ -374,9 +374,6 @@ elif menu == "实时天气数据":
 
     st.header("🌤 全球实时天气查询")
 
-    # ========== IP 自动定位（只返回中国城市） ==========
-    import requests
-
 
     # ========== IP 自动定位（只返回中国城市） ==========
     def get_city_by_ip():
@@ -384,10 +381,8 @@ elif menu == "实时天气数据":
             url = "https://restapi.amap.com/v3/ip"
             params = {"key": "e73c79c1fdce8187e310ba247a163ae5"}
             response = requests.get(url, params=params, timeout=5).json()
-
             if response.get("status") == "1" and response.get("info") == "OK":
                 city = response.get("city", "")
-                # 处理直辖市，比如把 "北京市" 变成 "北京"
                 if city in ["北京市", "上海市", "天津市", "重庆市"]:
                     return city.replace("市", "")
                 elif city and city != "[]":
@@ -398,30 +393,27 @@ elif menu == "实时天气数据":
             return None
 
 
-    # 2. 标记是否已经尝试过定位
+    # 初始化定位标记
     if 'ip_location_done' not in st.session_state:
         st.session_state.ip_location_done = False
 
-    # 3. 如果还没定位过，执行自动定位
+    # 首次进入页面执行一次IP定位
     if not st.session_state.ip_location_done:
         with st.spinner("正在自动定位你的城市..."):
             auto_city = get_city_by_ip()
-
-            final_city = "南通"  # 默认保底城市
-
+            final_city = "南通"
             if auto_city:
                 test_result = seniverse_now(auto_city)
                 if test_result and test_result.get("name"):
                     final_city = auto_city
-                    st.success(f"📍 自动定位成功：{final_city}")
+                    st.success(f"📍 自动定位成功，当前城市：{final_city}")
                 else:
-                    st.info(f"📍 定位城市无效，使用默认城市：南通")
+                    st.info(f"📍 {auto_city}天气无法查询，默认：南通")
             else:
-                st.info("📍 无法获取位置，使用默认城市：南通")
-
+                st.info("📍 IP定位失败，默认城市：南通")
             st.session_state.city = final_city
             st.session_state.ip_location_done = True
-                # ========== 侧边栏 ==========
+            # ========== 侧边栏 ==========
     st.sidebar.subheader("📚 最近查询")
     for i, city in enumerate(st.session_state.weather_history[-5:]):
         if st.sidebar.button(f"📍 {city}", key=f"h{i}"):
