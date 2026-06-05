@@ -376,10 +376,42 @@ elif menu == "实时天气数据":
 
 
     # ========== IP 自动定位（只返回中国城市） ==========
-    def get_city_by_ip():
+    def get_client_ip():
+        # 先用第三方公网IP接口绕开Cloud网络限制
         try:
-            url = "https://restapi.amap.com/v3/ip"
-            params = {"key": "e73c79c1fdce8187e310ba247a163ae5"}
+            resp = requests.get("https://api.ipify.org?format=json", timeout=6)
+            return resp.json()["ip"]
+        except:
+            try:
+                resp = requests.get("https://httpbin.org/ip", timeout=6)
+                return resp.json()["origin"].split(",")[0]
+            except:
+                return ""
+
+
+    # ========== IP 自动定位 + 手动兜底（最终版） ==========
+    def get_client_ip():
+        try:
+            resp = requests.get("https://api.ipify.org?format=json", timeout=6)
+            return resp.json()["ip"]
+        except:
+            try:
+                resp = requests.get("https://httpbin.org/ip", timeout=6)
+                return resp.json()["origin"].split(",")[0]
+            except:
+                return ""
+
+
+    def get_city_by_ip():
+        user_ip = get_client_ip()
+        if not user_ip:
+            return None
+        url = "https://restapi.amap.com/v3/ip"
+        params = {
+            "key": "e73c79c1fdce8187e310ba247a163ae5",
+            "ip": user_ip
+        }
+        try:
             response = requests.get(url, params=params, timeout=5).json()
             if response.get("status") == "1" and response.get("info") == "OK":
                 city = response.get("city", "")
@@ -389,8 +421,30 @@ elif menu == "实时天气数据":
                     return city
             return None
         except Exception as e:
-            print(f"定位出错: {e}")
             return None
+
+
+    # 初始化定位标记
+    if 'ip_location_done' not in st.session_state:
+        st.session_state.ip_location_done = False
+
+    # 自动定位 + 手动选择
+    if not st.session_state.ip_location_done:
+        with st.spinner("正在自动定位你的城市..."):
+            auto_city = get_city_by_ip()
+            city_list = ["南通", "南京", "苏州", "无锡", "常州", "泰州", "扬州", "上海", "杭州", "北京", "广州", "深圳",
+                         "成都", "重庆"]
+
+            if auto_city:
+                st.success(f"📍 自动定位成功：{auto_city}")
+                final_city = st.selectbox("如需修改城市，可手动选择", city_list,
+                                          index=city_list.index(auto_city) if auto_city in city_list else 0)
+            else:
+                st.info("📍 自动定位失败，请手动选择城市")
+                final_city = st.selectbox("选择你的城市", city_list, index=0)
+
+            st.session_state.city = final_city
+            st.session_state.ip_location_done = True
 
 
     # 初始化定位标记
