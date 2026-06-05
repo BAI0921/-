@@ -6,7 +6,6 @@ from sklearn.decomposition import FactorAnalysis
 from sklearn.preprocessing import StandardScaler
 import warnings
 import requests
-from streamlit_geolocation import streamlit_geolocation
 import base64
 import random
 from datetime import datetime
@@ -368,56 +367,80 @@ if menu == "大兴安岭气温分析":
             "🌲 **大兴安岭森林碳汇价值**\n- 每公顷年固碳≈2.8吨\n- 保护冻土=保护天然碳汇\n- 落叶松是寒带最强固碳树种之一")
 
 # ==========================
-# 2. 实时天气数据
+# 2. 实时天气数据（IP定位版）
 # ==========================
 elif menu == "实时天气数据":
     set_background(ALIYUN_BG2)
 
     st.header("🌤 全球实时天气查询")
 
-    # ========== 新增：定位按钮和相关逻辑 ==========
-    st.sidebar.subheader("📍 定位服务")
-    if st.sidebar.button("获取我的当前位置", use_container_width=True):
-        try:
-            loc = streamlit_geolocation()
-            if loc and loc.get("latitude") and loc.get("longitude"):
-                lat = loc["latitude"]
-                lon = loc["longitude"]
-                with st.spinner("正在根据GPS定位获取天气..."):
-                    weather_data = seniverse_now(f"{lat},{lon}")
-                if weather_data and weather_data.get("name"):
-                    st.session_state.city = weather_data["name"]
-                    st.sidebar.success(f"✅ 定位成功，当前城市：{weather_data['name']}")
-                    st.rerun()
-                else:
-                    st.sidebar.error("定位成功，但获取天气信息失败")
-            else:
-                    st.sidebar.error("❌ 定位失败，未获取到位置信息")
-                    st.sidebar.info("📱 请按以下步骤开启定位权限：\n\n"
-                                    "• iPhone：设置 → 隐私与安全性 → 定位服务 → 找到你的浏览器 → 允许\n\n"
-                                    "• 安卓：设置 → 应用 → 浏览器 → 权限 → 位置 → 允许\n\n"
-                                    "• 完成后刷新页面，点击'允许'弹窗")
-        except Exception as e:
-                st.sidebar.error(f"定位出错：{e}")
-                st.sidebar.info("💡 提示：请检查手机GPS是否开启，或复制网址到系统浏览器打开")
+    # ========== IP 自动定位（无需授权） ==========
+    import requests
 
+
+    def get_city_by_ip():
+        """通过IP获取城市，无需用户授权"""
+        try:
+            # 使用免费的 ipapi.co 服务（每天1000次免费）
+            response = requests.get("https://ipapi.co/json/", timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                city = data.get("city")
+                if city:
+                    return city
+            # 备用方案：使用 ip-api.com
+            response = requests.get("http://ip-api.com/json/", timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("status") == "success":
+                    return data.get("city")
+        except Exception as e:
+            st.sidebar.warning(f"IP定位失败，使用默认城市")
+        return None
+
+
+    # 自动获取城市（首次加载时执行）
+    if 'city' not in st.session_state:
+        st.session_state.city = "南通"  # 默认城市
+
+    # 尝试IP定位（只执行一次）
+    if 'ip_location_done' not in st.session_state:
+        st.session_state.ip_location_done = False
+
+    if not st.session_state.ip_location_done:
+        with st.spinner("正在自动定位你的城市..."):
+            auto_city = get_city_by_ip()
+            if auto_city:
+                st.session_state.city = auto_city
+                st.session_state.ip_location_done = True
+                st.success(f"📍 自动定位成功，当前城市：{auto_city}")
+            else:
+                st.session_state.ip_location_done = True
+                st.info("📍 自动定位失败，可手动输入城市名")
+
+    # ========== 侧边栏：最近查询 ==========
     st.sidebar.subheader("📚 最近查询")
     for i, city in enumerate(st.session_state.weather_history[-5:]):
         if st.sidebar.button(f"📍 {city}", key=f"h{i}"):
             st.session_state.city = city
             st.rerun()
 
+    st.subheader(f"📍 当前城市：{st.session_state.city}")
+
+    # ========== 获取天气数据 ==========
     with st.spinner(f"获取 {st.session_state.city} 天气..."):
         wc = seniverse_now(st.session_state.city)
         daily = seniverse_daily(st.session_state.city, 3)
-        aqi_data = seniverse_aqi(st.session_state.city)  # 改名避免与函数名冲突
+        aqi_data = seniverse_aqi(st.session_state.city)
 
     if wc:
+        # 记录查询历史
         if wc["name"] not in st.session_state.weather_history:
             st.session_state.weather_history.append(wc["name"])
             if len(st.session_state.weather_history) > 10:
                 st.session_state.weather_history.pop(0)
 
+        # 主要天气信息
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("🏙️ 城市", wc["name"])
         c2.metric("🌤️ 天气", wc["text"])
@@ -426,8 +449,10 @@ elif menu == "实时天气数据":
         st.metric("💨 风速", f"{wc['wind']} m/s")
 
         st.divider()
+
+        # 空气质量
         st.subheader("🌫️ 空气质量 AQI")
-        aqi_num = 70  # 默认值
+        aqi_num = 70
         if aqi_data:
             aq, ql, pm = aqi_data["aqi"], aqi_data["quality"], aqi_data["pm25"]
             aqi_num = aq
@@ -447,6 +472,8 @@ elif menu == "实时天气数据":
             st.info("ℹ️ 暂无AQI数据")
 
         st.divider()
+
+        # 未来3天预报
         st.subheader("📅 未来3天预报")
         if daily:
             cols = st.columns(3)
@@ -462,6 +489,8 @@ elif menu == "实时天气数据":
                     """, unsafe_allow_html=True)
 
         st.divider()
+
+        # 大兴安岭生态联动
         st.subheader("🌲 大兴安岭生态联动")
         tips_list = link_to_daxinganling(wc["temp"], aqi_num, wc["wind_dir"])
         for t in tips_list:
@@ -471,21 +500,24 @@ elif menu == "实时天气数据":
                 st.info(t)
 
         st.divider()
+
+        # 生活建议
         st.subheader("💡 今日生活建议")
         st.info(get_clothing_suggestion(wc["temp"]))
         st.info(get_sunscreen_suggestion(wc["text"]))
         st.info(get_outdoor_suggestion(wc["text"], wc["wind"], wc["temp"]))
 
-    # ========== 查询其他城市部分（已修复语法错误） ==========
+    # ========== 手动查询其他城市 ==========
     st.divider()
     st.subheader("🔍 查询其他城市")
-    city_in = st.text_input("输入城市名：")
+    city_in = st.text_input("输入城市名：", key="manual_city")
     if city_in:
         with st.spinner(f"获取 {city_in} 天气..."):
             wo = seniverse_now(city_in)
             do = seniverse_daily(city_in, 3)
             ao = seniverse_aqi(city_in)
         if wo:
+            # 显示查询结果
             col_base = st.columns(3)
             with col_base[0]:
                 st.metric("🏙️ 城市", wo["name"])
@@ -505,13 +537,13 @@ elif menu == "实时天气数据":
                 ca2.metric("等级", ql)
                 ca3.metric("PM2.5", pm)
                 if ql == "优":
-                    st.success("✅ 空气优秀，适合户外运动")
+                    st.success("✅ 空气优秀")
                 elif ql == "良":
                     st.info("✅ 空气良好")
                 elif "轻度" in ql:
-                    st.warning("⚠️ 轻度污染，敏感人群减少外出")
+                    st.warning("⚠️ 轻度污染")
                 else:
-                    st.error("❌ 污染严重，避免外出")
+                    st.error("❌ 污染严重")
             else:
                 st.info("ℹ️ 暂无AQI数据")
 

@@ -4,4 +4,3 @@ matplotlib
 numpy
 scikit-learn
 requests
-streamlit-geolocation
