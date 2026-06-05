@@ -379,56 +379,44 @@ elif menu == "实时天气数据":
 
 
     def get_city_by_ip():
-        """通过IP获取城市，只返回中国城市"""
-        # 方案1：ip-api.com（返回国家代码和城市名）
-        try:
-            response = requests.get("http://ip-api.com/json/", timeout=5)
-            if response.status_code == 200:
-                data = response.json()
-                if data.get("status") == "success":
-                    country = data.get("countryCode", "")
-                    if country == "CN":
-                        city = data.get("city", "")
-                        if city:
-                            city = city.replace("市", "")
-                            # 常见城市映射（处理API可能不认识的别名）
-                            city_map = {
-                                "南通": "南通",
-                                "上海": "上海",
-                                "北京": "北京",
-                                "深圳": "深圳",
-                                "广州": "广州",
-                                "杭州": "杭州",
-                                "南京": "南京",
-                                "成都": "成都",
-                                "武汉": "武汉",
-                                "西安": "西安",
-                                "苏州": "苏州",
-                                "天津": "天津",
-                                "重庆": "重庆",
-                            }
-                            # 如果映射表里有就返回，否则返回原城市名
-                            return city_map.get(city, city)
-                    return None
-        except Exception as e:
-            pass
+        """通过高德API获取城市"""
+        import requests
 
-        # 方案2：ipapi.co 备用
+        AMAP_KEY = "e73c79c1fdce8187e310ba247a163ae5"  # ← 把这里换成你申请的Key
+
         try:
-            response = requests.get("https://ipapi.co/json/", timeout=5)
+            # 调用高德IP定位API
+            url = f"https://restapi.amap.com/v3/ip?key={AMAP_KEY}"
+            response = requests.get(url, timeout=5)
+
             if response.status_code == 200:
                 data = response.json()
-                country = data.get("country_code", "")
-                if country == "CN":
+
+                # 检查返回状态
+                if data.get("status") == "1" and data.get("info") == "OK":
+                    country = data.get("country", "")
+                    province = data.get("province", "")
                     city = data.get("city", "")
-                    if city:
+
+                    # 只接受中国城市
+                    if country == "中国" and city:
+                        # 有些返回结果是"北京市"带"市"字，去掉
                         city = city.replace("市", "")
-                        return city
+                        # 特别处理直辖市
+                        if city == "北京" or city == "上海" or city == "天津" or city == "重庆":
+                            return city
+                        if city and city != "[]":
+                            return city
+                    elif country == "中国" and not city and province:
+                        # 如果城市为空但省份有值（比如直辖市或地区），用省份
+                        province = province.replace("省", "")
+                        return province
+
+            return None
+
         except Exception as e:
-            pass
-
-        return None
-
+            print(f"高德定位失败: {e}")
+            return None
 
     # 初始化城市
     if 'city' not in st.session_state:
