@@ -503,19 +503,23 @@ elif menu == "实时天气数据":
             if len(st.session_state.weather_history) > 10:
                 st.session_state.weather_history.pop(0)
 
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("🏙️ 城市", wc["name"])
-        c2.metric("🌤️ 天气", wc["text"])
-        c3.metric("🌡️ 温度", f"{wc['temp']}℃")
-        c4.metric("💧 湿度", f"{wc['humidity']}%")
-        st.metric("💨 风速", f"{wc['wind']} m/s")
+        st.divider()
+        st.subheader("🌤 当前天气")
+        # 自适应横排
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("🏙 城市", wc["name"])
+        col2.metric("🌤 天气", wc["text"])
+        col3.metric("🌡 温度", f"{wc['temp']}℃")
+        col4.metric("💧 湿度", f"{wc['humidity']}%")
+        st.columns(1)[0].metric("💨 风速", f"{wc['wind']} m/s")
 
         st.divider()
-        st.subheader("🌫️ 空气质量 AQI")
+        st.subheader("🌫 空气质量 AQI")
         aqi_num = 70
         if aqi_data:
             aq, ql, pm = aqi_data["aqi"], aqi_data["quality"], aqi_data["pm25"]
             aqi_num = aq
+            # ✅ 空气质量 横排 3列
             ca1, ca2, ca3 = st.columns(3)
             ca1.metric("AQI", aq)
             ca2.metric("等级", ql)
@@ -538,13 +542,13 @@ elif menu == "实时天气数据":
             for i, d in enumerate(daily):
                 with cols[i]:
                     st.markdown(f"""
-                    <div style='text-align:center'>
-                    {d['date'][-5:]}<br>
-                    <span style='font-size:28px'>{get_weather_icon(d['text_day'])}</span><br>
-                    {d['text_day']}<br>
-                    {d['low']}~{d['high']}℃
-                    </div>
-                    """, unsafe_allow_html=True)
+                        <div style='text-align:center; padding:10px; background:#f6f6f6; border-radius:12px;'>
+                        {d['date'][-5:]}<br>
+                        <span style='font-size:30px'>{get_weather_icon(d['text_day'])}</span><br>
+                        {d['text_day']}<br>
+                        {d['low']}~{d['high']}℃
+                        </div>
+                        """, unsafe_allow_html=True)
 
         st.divider()
         st.subheader("🌲 大兴安岭生态联动")
@@ -561,7 +565,7 @@ elif menu == "实时天气数据":
         st.info(get_sunscreen_suggestion(wc["text"]))
         st.info(get_outdoor_suggestion(wc["text"], wc["wind"], wc["temp"]))
 
-    # ========== 手动查询 ==========
+        # ========== 手动查询 ==========
     st.divider()
     st.subheader("🔍 查询其他城市")
     city_in = st.text_input("输入城市名：", key="manual_city")
@@ -571,32 +575,23 @@ elif menu == "实时天气数据":
             do = seniverse_daily(city_in, 3)
             ao = seniverse_aqi(city_in)
         if wo:
-            col_base = st.columns(3)
-            with col_base[0]:
-                st.metric("🏙️ 城市", wo["name"])
-            with col_base[1]:
-                st.metric("🌡️ 温度", f"{wo['temp']}℃")
-            with col_base[2]:
-                st.metric("🌤️ 天气", wo["text"])
+            st.divider()
+            st.subheader("🌤 查询结果")
+            col_base = st.columns(4)
+            col_base[0].metric("🏙 城市", wo["name"])
+            col_base[1].metric("🌡 温度", f"{wo['temp']}℃")
+            col_base[2].metric("🌤 天气", wo["text"])
+            col_base[3].metric("💧 湿度", f"{wo['humidity']}%")
 
             tmp_aqi = ao["aqi"] if ao else 70
-
             st.divider()
-            st.subheader("🌫️ 空气质量 AQI")
+            st.subheader("🌫 空气质量 AQI")
             if ao:
                 aq, ql, pm = ao["aqi"], ao["quality"], ao["pm25"]
                 ca1, ca2, ca3 = st.columns(3)
                 ca1.metric("AQI", aq)
                 ca2.metric("等级", ql)
                 ca3.metric("PM2.5", pm)
-                if ql == "优":
-                    st.success("✅ 空气优秀")
-                elif ql == "良":
-                    st.info("✅ 空气良好")
-                elif "轻度" in ql:
-                    st.warning("⚠️ 轻度污染")
-                else:
-                    st.error("❌ 污染严重")
             else:
                 st.info("ℹ️ 暂无AQI数据")
 
@@ -607,27 +602,12 @@ elif menu == "实时天气数据":
                 for i, d in enumerate(do):
                     with cols[i]:
                         st.markdown(f"""
-                        <div style='text-align:center'>
-                        {d['date'][-5:]}<br>
-                        <span style='font-size:28px'>{get_weather_icon(d['text_day'])}</span><br>
-                        {d['text_day']}<br>
-                        {d['low']}~{d['high']}℃
-                        </div>
-                        """, unsafe_allow_html=True)
-
-            st.divider()
-            st.subheader("🌲 大兴安岭生态联动")
-            tips_in = link_to_daxinganling(wo["temp"], tmp_aqi, wo["wind_dir"])
-            for t in tips_in:
-                if "🍃" in t or "✅" in t:
-                    st.success(t)
-                else:
-                    st.info(t)
-
-            st.divider()
-            st.subheader("💡 今日生活建议")
-            st.info(get_clothing_suggestion(wo["temp"]))
-            st.info(get_sunscreen_suggestion(wo["text"]))
-            st.info(get_outdoor_suggestion(wo["text"], wo["wind"], wo["temp"]))
+                            <div style='text-align:center; padding:10px; background:#f6f6f6; border-radius:12px;'>
+                            {d['date'][-5:]}<br>
+                            <span style='font-size:30px'>{get_weather_icon(d['text_day'])}</span><br>
+                            {d['text_day']}<br>
+                            {d['low']}~{d['high']}℃
+                            </div>
+                            """, unsafe_allow_html=True)
         else:
             st.warning("未找到该城市天气，请检查输入是否正确")
