@@ -442,16 +442,6 @@ elif menu == "实时天气数据":
             st.session_state.city = city
             st.rerun()
 
-    st.subheader(f"📍 当前城市：{st.session_state.city}")
-            # ========== 侧边栏 ==========
-    st.sidebar.subheader("📚 最近查询")
-    for i, city in enumerate(st.session_state.weather_history[-5:]):
-        if st.sidebar.button(f"📍 {city}", key=f"h{i}"):
-            st.session_state.city = city
-            st.rerun()
-
-    st.subheader(f"📍 当前城市：{st.session_state.city}")
-
     # ========== 获取天气 ==========
     with st.spinner(f"获取 {st.session_state.city} 天气..."):
         wc = seniverse_now(st.session_state.city)
