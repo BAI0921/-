@@ -372,10 +372,37 @@ if menu == "大兴安岭气温分析":
 # ==========================
 elif menu == "实时天气数据":
     set_background(ALIYUN_BG2)
-
+    import math
     st.header("🌤 全球实时天气查询")
 
-
+    # WGS84转GCJ02（高德专用坐标转换，解决飘南通关键）
+    def wgs84_to_gcj02(lng, lat):
+        PI = 3.14159265358979324
+        a = 6378245.0
+        ee = 0.006693421622965943
+        def transformLat(x, y):
+            ret = -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * math.sqrt(abs(x))
+            ret += (20.0 * math.sin(6.0 * x * PI) + 20.0 * math.sin(2.0 * x * PI)) * 2.0 / 3.0
+            ret += (20.0 * math.sin(y * PI) + 40.0 * math.sin(y / 3.0 * PI)) * 2.0 / 3.0
+            ret += (160.0 * math.sin(y / 12.0 * PI) + 320 * math.sin(y / 30.0 * PI)) * 2.0 / 3.0
+            return ret
+        def transformLng(x, y):
+            ret = 300.0 + x + 2.0 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * math.sqrt(abs(x))
+            ret += (20.0 * math.sin(6.0 * x * PI) + 20.0 * math.sin(2.0 * x * PI)) * 2.0 / 3.0
+            ret += (20.0 * math.sin(x * PI) + 40.0 * math.sin(x / 3.0 * PI)) * 2.0 / 3.0
+            ret += (150.0 * math.sin(x / 12.0 * PI) + 300.0 * math.sin(x / 30.0 * PI)) * 2.0 / 3.0
+            return ret
+        dLat = transformLat(lng - 105.0, lat - 35.0)
+        dLng = transformLng(lng - 105.0, lat - 35.0)
+        radLat = lat / 180.0 * PI
+        magic = math.sin(radLat)
+        magic = 1 - ee * magic * magic
+        sqrtMagic = math.sqrt(magic)
+        dLat = (dLat * 180.0) / ((a * (1 - ee)) / (magic * sqrtMagic) * PI)
+        dLng = (dLng * 180.0) / (a / sqrtMagic * math.cos(radLat) * PI)
+        gcjLng = lng + dLng
+        gcjLat = lat + dLat
+        return gcjLng, gcjLat
 
     def get_client_ip():
         try:
@@ -388,9 +415,6 @@ elif menu == "实时天气数据":
             except:
                 return ""
 
-
-    # ========== IP 定位城市（修复：去掉“市”字） ==========
-    # 导入GPS定位组件（文件头部补充导入：from streamlit_geolocation import streamlit_geolocation）
     if 'city' not in st.session_state:
         st.session_state.city = "南通"
     if 'ip_location_done' not in st.session_state:
@@ -399,18 +423,18 @@ elif menu == "实时天气数据":
     if not st.session_state.ip_location_done:
         st.info("📍正在请求手机GPS定位，请在浏览器弹窗允许位置权限！")
         location = streamlit_geolocation()
-        # 获取经纬度
         lat = location.get("latitude")
         lon = location.get("longitude")
         auto_city = None
         if lat and lon:
-            # 高德经纬度逆地理编码 → 转城市名
+            # 关键：WGS坐标转为GCJ02再传给高德
+            gcj_lon, gcj_lat = wgs84_to_gcj02(lon, lat)
             amap_key = "e73c79c1fdce8187e310ba247a163ae5"
+            # radius改成300米，缩小定位范围，减少跨市漂移
             res = requests.get(
-                f"https://restapi.amap.com/v3/geocode/regeo?key={amap_key}&location={lon},{lat}&radius=1000").json()
+                f"https://restapi.amap.com/v3/geocode/regeo?key={amap_key}&location={gcj_lon},{gcj_lat}&radius=300").json()
             if res["status"] == "1":
                 auto_city = res["regeocode"]["addressComponent"]["city"].replace("市", "")
-                # 校验心知天气是否支持该城市
                 test = seniverse_now(auto_city)
                 if test:
                     st.session_state.city = auto_city
@@ -419,24 +443,54 @@ elif menu == "实时天气数据":
                     st.session_state.city = "南通"
                     st.info("定位城市无效，默认南通")
         else:
-            # 用户拒绝GPS权限 / 获取失败
-            st.info("GPS权限未开启，默认城市：南通")
+            st.info("⚠️GPS权限未获取，默认城市：南通，可下方手动切换")
             st.session_state.city = "南通"
-            st.session_state.ip_location_done = True
-            
-            st.divider()
-            select_city = st.selectbox("手动切换城市", ["南通", "南京", "苏州", "无锡", "泰州", "上海", "杭州", "北京"])
-            if select_city != st.session_state.city:
-                st.session_state.city = select_city
-                st.rerun()
+        st.session_state.ip_location_done = True
 
-    # ========== 侧边栏 历史记录 ==========
-    st.sidebar.subheader("📚 最近查询")
-    for i, city in enumerate(st.session_state.weather_history[-5:]):
-        if st.sidebar.button(f"📍 {city}", key=f"h{i}"):
-            st.session_state.city = city
-            st.rerun()
+    st.subheader(f"📍当前查询城市：{st.session_state.city}")
+    st.divider()
 
+    # 快捷按钮
+    st.markdown("#### ⚡快捷点选城市")
+    r1c1,r1c2,r1c3,r1c4,r1c5 = st.columns(5)
+    with r1c1:
+        if st.button("南通"):
+            st.session_state.city = "南通";st.rerun()
+    with r1c2:
+        if st.button("南京"):
+            st.session_state.city = "南京";st.rerun()
+    with r1c3:
+        if st.button("苏州"):
+            st.session_state.city = "苏州";st.rerun()
+    with r1c4:
+        if st.button("无锡"):
+            st.session_state.city = "无锡";st.rerun()
+    with r1c5:
+        if st.button("泰州"):
+            st.session_state.city = "泰州";st.rerun()
+
+    r2c1,r2c2,r2c3,r2c4 = st.columns(4)
+    with r2c1:
+        if st.button("上海"):
+            st.session_state.city = "上海";st.rerun()
+    with r2c2:
+        if st.button("杭州"):
+            st.session_state.city = "杭州";st.rerun()
+    with r2c3:
+        if st.button("北京"):
+            st.session_state.city = "北京";st.rerun()
+    with r2c4:
+        if st.button("广州"):
+            st.session_state.city = "广州";st.rerun()
+
+    # 手动输入
+    st.divider()
+    input_city = st.text_input("✍手动输入城市名称（如：常州、成都）：")
+    if input_city.strip() != "":
+        st.session_state.city = input_city.strip()
+        st.rerun()
+
+    # 下面你原本查询天气、渲染数据的代码不动，接着往下写
     # ========== 获取天气 ==========
     with st.spinner(f"获取 {st.session_state.city} 天气..."):
         wc = seniverse_now(st.session_state.city)
