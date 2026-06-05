@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.decomposition import FactorAnalysis
 from sklearn.preprocessing import StandardScaler
+from streamlit_geolocation import streamlit_geolocation
 import warnings
 import requests
 import base64
@@ -375,7 +376,7 @@ elif menu == "实时天气数据":
     st.header("🌤 全球实时天气查询")
 
 
-    # ========== IP 获取（只写一次，不重复定义） ==========
+
     def get_client_ip():
         try:
             resp = requests.get("https://api.ipify.org?format=json", timeout=6)
@@ -389,50 +390,38 @@ elif menu == "实时天气数据":
 
 
     # ========== IP 定位城市（修复：去掉“市”字） ==========
-    def get_city_by_ip():
-        user_ip = get_client_ip()
-        if not user_ip:
-            return None
-
-        url = "https://restapi.amap.com/v3/ip"
-        params = {
-            "key": "e73c79c1fdce8187e310ba247a163ae5",
-            "ip": user_ip
-        }
-        try:
-            response = requests.get(url, params=params, timeout=5).json()
-            if response.get("status") == "1" and response.get("info") == "OK":
-                city = response.get("city", "").strip()
-
-                # 关键修复：去掉“市”字，心知天气才能识别
-                city = city.replace("市", "")
-                return city if city else None
-            return None
-        except Exception as e:
-            return None
-
-
-    # 只执行一次自动定位
+    # 导入GPS定位组件（文件头部补充导入：from streamlit_geolocation import streamlit_geolocation）
+    if 'city' not in st.session_state:
+        st.session_state.city = "南通"
     if 'ip_location_done' not in st.session_state:
         st.session_state.ip_location_done = False
 
     if not st.session_state.ip_location_done:
-        with st.spinner("正在自动定位你的城市..."):
-            auto_city = get_city_by_ip()
-
-            if auto_city:
-                # 测试城市是否有效
-                test_weather = seniverse_now(auto_city)
-                if test_weather:
+        st.info("📍正在请求手机GPS定位，请在浏览器弹窗允许位置权限！")
+        location = streamlit_geolocation()
+        # 获取经纬度
+        lat = location.get("latitude")
+        lon = location.get("longitude")
+        auto_city = None
+        if lat and lon:
+            # 高德经纬度逆地理编码 → 转城市名
+            amap_key = "e73c79c1fdce8187e310ba247a163ae5"
+            res = requests.get(
+                f"https://restapi.amap.com/v3/geocode/regeo?key={amap_key}&location={lon},{lat}&radius=1000").json()
+            if res["status"] == "1":
+                auto_city = res["regeocode"]["addressComponent"]["city"].replace("市", "")
+                # 校验心知天气是否支持该城市
+                test = seniverse_now(auto_city)
+                if test:
                     st.session_state.city = auto_city
-                    st.success(f"📍 自动定位成功：{st.session_state.city}")
+                    st.success(f"GPS定位成功：{auto_city}")
                 else:
                     st.session_state.city = "南通"
-                    st.info(f"📍 定位城市无效，默认：南通")
-            else:
-                st.session_state.city = "南通"
-                st.info("📍 定位失败，默认城市：南通")
-
+                    st.info("定位城市无效，默认南通")
+        else:
+            # 用户拒绝GPS权限 / 获取失败
+            st.info("GPS权限未开启，默认城市：南通")
+            st.session_state.city = "南通"
             st.session_state.ip_location_done = True
 
     # ========== 侧边栏 历史记录 ==========
