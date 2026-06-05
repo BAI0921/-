@@ -378,72 +378,50 @@ elif menu == "实时天气数据":
     import requests
 
 
+    # ========== IP 自动定位（只返回中国城市） ==========
     def get_city_by_ip():
-        """通过高德API获取城市"""
-        import requests
-
-        AMAP_KEY = "e73c79c1fdce8187e310ba247a163ae5"  # ← 把这里换成你申请的Key
-
         try:
-            # 调用高德IP定位API
-            url = f"https://restapi.amap.com/v3/ip?key={AMAP_KEY}"
-            response = requests.get(url, timeout=5)
+            url = "https://restapi.amap.com/v3/ip"
+            params = {"key": "e73c79c1fdce8187e310ba247a163ae5"}
+            response = requests.get(url, params=params, timeout=5).json()
 
-            if response.status_code == 200:
-                data = response.json()
-
-                # 检查返回状态
-                if data.get("status") == "1" and data.get("info") == "OK":
-                    country = data.get("country", "")
-                    province = data.get("province", "")
-                    city = data.get("city", "")
-
-                    # 只接受中国城市
-                    if country == "中国" and city:
-                        # 有些返回结果是"北京市"带"市"字，去掉
-                        city = city.replace("市", "")
-                        # 特别处理直辖市
-                        if city == "北京" or city == "上海" or city == "天津" or city == "重庆":
-                            return city
-                        if city and city != "[]":
-                            return city
-                    elif country == "中国" and not city and province:
-                        # 如果城市为空但省份有值（比如直辖市或地区），用省份
-                        province = province.replace("省", "")
-                        return province
-
+            if response.get("status") == "1" and response.get("info") == "OK":
+                city = response.get("city", "")
+                # 处理直辖市，比如把 "北京市" 变成 "北京"
+                if city in ["北京市", "上海市", "天津市", "重庆市"]:
+                    return city.replace("市", "")
+                elif city and city != "[]":
+                    return city
             return None
-
         except Exception as e:
-            print(f"高德定位失败: {e}")
+            print(f"定位出错: {e}")
             return None
 
-    # 初始化城市
-    if 'city' not in st.session_state:
-        st.session_state.city = "南通"
 
-    # 自动定位（只执行一次）
+    # 2. 标记是否已经尝试过定位
     if 'ip_location_done' not in st.session_state:
         st.session_state.ip_location_done = False
 
+    # 3. 如果还没定位过，执行自动定位
     if not st.session_state.ip_location_done:
         with st.spinner("正在自动定位你的城市..."):
             auto_city = get_city_by_ip()
+
+            final_city = "南通"  # 默认保底城市
+
             if auto_city:
-                # 验证城市是否有效（调用天气API测试）
                 test_result = seniverse_now(auto_city)
                 if test_result and test_result.get("name"):
-                    st.session_state.city = auto_city
-                    st.session_state.ip_location_done = True
-                    st.success(f"📍 自动定位成功，当前城市：{auto_city}")
+                    final_city = auto_city
+                    st.success(f"📍 自动定位成功：{final_city}")
                 else:
-                    st.session_state.ip_location_done = True
-                    st.info(f"📍 定位到 {auto_city}，已使用默认城市：南通")
+                    st.info(f"📍 定位城市无效，使用默认城市：南通")
             else:
-                st.session_state.ip_location_done = True
-                st.info("📍 无法自动定位（非国内IP），已使用默认城市：南通")
+                st.info("📍 无法获取位置，使用默认城市：南通")
 
-    # ========== 侧边栏 ==========
+            st.session_state.city = final_city
+            st.session_state.ip_location_done = True
+                # ========== 侧边栏 ==========
     st.sidebar.subheader("📚 最近查询")
     for i, city in enumerate(st.session_state.weather_history[-5:]):
         if st.sidebar.button(f"📍 {city}", key=f"h{i}"):
