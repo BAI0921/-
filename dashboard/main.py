@@ -389,7 +389,7 @@ elif menu == "实时天气数据":
                 return ""
 
 
-    # ========== IP 自动定位 + 手动兜底（最终版） ==========
+    # ========== IP 自动定位 + 手动选择（最终纯净版） ==========
     def get_client_ip():
         try:
             resp = requests.get("https://api.ipify.org?format=json", timeout=6)
@@ -400,7 +400,6 @@ elif menu == "实时天气数据":
                 return resp.json()["origin"].split(",")[0]
             except:
                 return ""
-
 
     def get_city_by_ip():
         user_ip = get_client_ip()
@@ -423,48 +422,27 @@ elif menu == "实时天气数据":
         except Exception as e:
             return None
 
-
-    # 初始化定位标记
+    # 只执行一次定位
     if 'ip_location_done' not in st.session_state:
         st.session_state.ip_location_done = False
 
-    # 自动定位 + 手动选择
     if not st.session_state.ip_location_done:
         with st.spinner("正在自动定位你的城市..."):
             auto_city = get_city_by_ip()
-            city_list = ["南通", "南京", "苏州", "无锡", "常州", "泰州", "扬州", "上海", "杭州", "北京", "广州", "深圳",
-                         "成都", "重庆"]
+            city_list = ["南通", "南京", "苏州", "无锡", "常州", "泰州", "扬州", "上海", "杭州", "北京", "广州", "深圳", "成都", "重庆"]
 
             if auto_city:
-                st.success(f"📍 自动定位成功：{auto_city}")
-                final_city = st.selectbox("如需修改城市，可手动选择", city_list,
-                                          index=city_list.index(auto_city) if auto_city in city_list else 0)
-            else:
-                st.info("📍 自动定位失败，请手动选择城市")
-                final_city = st.selectbox("选择你的城市", city_list, index=0)
-
-            st.session_state.city = final_city
-            st.session_state.ip_location_done = True
-
-
-    # 初始化定位标记
-    if 'ip_location_done' not in st.session_state:
-        st.session_state.ip_location_done = False
-
-    # 首次进入页面执行一次IP定位
-    if not st.session_state.ip_location_done:
-        with st.spinner("正在自动定位你的城市..."):
-            auto_city = get_city_by_ip()
-            final_city = "南通"
-            if auto_city:
-                test_result = seniverse_now(auto_city)
-                if test_result and test_result.get("name"):
+                test = seniverse_now(auto_city)
+                if test and test.get("name"):
                     final_city = auto_city
-                    st.success(f"📍 自动定位成功，当前城市：{final_city}")
+                    st.success(f"📍 自动定位成功：{final_city}")
                 else:
-                    st.info(f"📍 {auto_city}天气无法查询，默认：南通")
+                    final_city = "南通"
+                    st.info(f"📍 无法获取城市，默认：南通")
             else:
-                st.info("📍 IP定位失败，默认城市：南通")
+                final_city = "南通"
+                st.info("📍 定位失败，默认城市：南通")
+
             st.session_state.city = final_city
             st.session_state.ip_location_done = True
             # ========== 侧边栏 ==========
