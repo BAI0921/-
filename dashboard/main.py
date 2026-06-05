@@ -375,21 +375,7 @@ elif menu == "实时天气数据":
     st.header("🌤 全球实时天气查询")
 
 
-    # ========== IP 自动定位（只返回中国城市） ==========
-    def get_client_ip():
-        # 先用第三方公网IP接口绕开Cloud网络限制
-        try:
-            resp = requests.get("https://api.ipify.org?format=json", timeout=6)
-            return resp.json()["ip"]
-        except:
-            try:
-                resp = requests.get("https://httpbin.org/ip", timeout=6)
-                return resp.json()["origin"].split(",")[0]
-            except:
-                return ""
-
-
-    # ========== IP 自动定位 + 手动选择（最终纯净版） ==========
+    # ========== IP 获取（只写一次，不重复定义） ==========
     def get_client_ip():
         try:
             resp = requests.get("https://api.ipify.org?format=json", timeout=6)
@@ -401,10 +387,13 @@ elif menu == "实时天气数据":
             except:
                 return ""
 
+
+    # ========== IP 定位城市（修复：去掉“市”字） ==========
     def get_city_by_ip():
         user_ip = get_client_ip()
         if not user_ip:
             return None
+
         url = "https://restapi.amap.com/v3/ip"
         params = {
             "key": "e73c79c1fdce8187e310ba247a163ae5",
@@ -413,38 +402,47 @@ elif menu == "实时天气数据":
         try:
             response = requests.get(url, params=params, timeout=5).json()
             if response.get("status") == "1" and response.get("info") == "OK":
-                city = response.get("city", "")
-                if city in ["北京市", "上海市", "天津市", "重庆市"]:
-                    return city.replace("市", "")
-                elif city and city != "[]":
-                    return city
+                city = response.get("city", "").strip()
+
+                # 关键修复：去掉“市”字，心知天气才能识别
+                city = city.replace("市", "")
+                return city if city else None
             return None
         except Exception as e:
             return None
 
-    # 只执行一次定位
+
+    # 只执行一次自动定位
     if 'ip_location_done' not in st.session_state:
         st.session_state.ip_location_done = False
 
     if not st.session_state.ip_location_done:
         with st.spinner("正在自动定位你的城市..."):
             auto_city = get_city_by_ip()
-            city_list = ["南通", "南京", "苏州", "无锡", "常州", "泰州", "扬州", "上海", "杭州", "北京", "广州", "深圳", "成都", "重庆"]
 
             if auto_city:
-                test = seniverse_now(auto_city)
-                if test and test.get("name"):
-                    final_city = auto_city
-                    st.success(f"📍 自动定位成功：{final_city}")
+                # 测试城市是否有效
+                test_weather = seniverse_now(auto_city)
+                if test_weather:
+                    st.session_state.city = auto_city
+                    st.success(f"📍 自动定位成功：{st.session_state.city}")
                 else:
-                    final_city = "南通"
-                    st.info(f"📍 无法获取城市，默认：南通")
+                    st.session_state.city = "南通"
+                    st.info(f"📍 定位城市无效，默认：南通")
             else:
-                final_city = "南通"
+                st.session_state.city = "南通"
                 st.info("📍 定位失败，默认城市：南通")
 
-            st.session_state.city = final_city
             st.session_state.ip_location_done = True
+
+    # ========== 侧边栏 历史记录 ==========
+    st.sidebar.subheader("📚 最近查询")
+    for i, city in enumerate(st.session_state.weather_history[-5:]):
+        if st.sidebar.button(f"📍 {city}", key=f"h{i}"):
+            st.session_state.city = city
+            st.rerun()
+
+    st.subheader(f"📍 当前城市：{st.session_state.city}")
             # ========== 侧边栏 ==========
     st.sidebar.subheader("📚 最近查询")
     for i, city in enumerate(st.session_state.weather_history[-5:]):
