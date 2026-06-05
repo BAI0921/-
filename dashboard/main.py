@@ -367,43 +367,74 @@ if menu == "大兴安岭气温分析":
             "🌲 **大兴安岭森林碳汇价值**\n- 每公顷年固碳≈2.8吨\n- 保护冻土=保护天然碳汇\n- 落叶松是寒带最强固碳树种之一")
 
 # ==========================
-# 2. 实时天气数据（IP定位版）
+# 2. 实时天气数据（IP定位版 - 修复国外城市问题）
 # ==========================
 elif menu == "实时天气数据":
     set_background(ALIYUN_BG2)
 
     st.header("🌤 全球实时天气查询")
 
-    # ========== IP 自动定位（无需授权） ==========
+    # ========== IP 自动定位（只返回中国城市） ==========
     import requests
 
 
     def get_city_by_ip():
-        """通过IP获取城市，无需用户授权"""
+        """通过IP获取城市，只返回中国城市"""
+        # 方案1：ip-api.com（返回国家代码和城市名）
         try:
-            # 使用免费的 ipapi.co 服务（每天1000次免费）
-            response = requests.get("https://ipapi.co/json/", timeout=5)
-            if response.status_code == 200:
-                data = response.json()
-                city = data.get("city")
-                if city:
-                    return city
-            # 备用方案：使用 ip-api.com
             response = requests.get("http://ip-api.com/json/", timeout=5)
             if response.status_code == 200:
                 data = response.json()
                 if data.get("status") == "success":
-                    return data.get("city")
+                    country = data.get("countryCode", "")
+                    if country == "CN":
+                        city = data.get("city", "")
+                        if city:
+                            city = city.replace("市", "")
+                            # 常见城市映射（处理API可能不认识的别名）
+                            city_map = {
+                                "南通": "南通",
+                                "上海": "上海",
+                                "北京": "北京",
+                                "深圳": "深圳",
+                                "广州": "广州",
+                                "杭州": "杭州",
+                                "南京": "南京",
+                                "成都": "成都",
+                                "武汉": "武汉",
+                                "西安": "西安",
+                                "苏州": "苏州",
+                                "天津": "天津",
+                                "重庆": "重庆",
+                            }
+                            # 如果映射表里有就返回，否则返回原城市名
+                            return city_map.get(city, city)
+                    return None
         except Exception as e:
-            st.sidebar.warning(f"IP定位失败，使用默认城市")
+            pass
+
+        # 方案2：ipapi.co 备用
+        try:
+            response = requests.get("https://ipapi.co/json/", timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                country = data.get("country_code", "")
+                if country == "CN":
+                    city = data.get("city", "")
+                    if city:
+                        city = city.replace("市", "")
+                        return city
+        except Exception as e:
+            pass
+
         return None
 
 
-    # 自动获取城市（首次加载时执行）
+    # 初始化城市
     if 'city' not in st.session_state:
-        st.session_state.city = "南通"  # 默认城市
+        st.session_state.city = "南通"
 
-    # 尝试IP定位（只执行一次）
+    # 自动定位（只执行一次）
     if 'ip_location_done' not in st.session_state:
         st.session_state.ip_location_done = False
 
@@ -411,14 +442,20 @@ elif menu == "实时天气数据":
         with st.spinner("正在自动定位你的城市..."):
             auto_city = get_city_by_ip()
             if auto_city:
-                st.session_state.city = auto_city
-                st.session_state.ip_location_done = True
-                st.success(f"📍 自动定位成功，当前城市：{auto_city}")
+                # 验证城市是否有效（调用天气API测试）
+                test_result = seniverse_now(auto_city)
+                if test_result and test_result.get("name"):
+                    st.session_state.city = auto_city
+                    st.session_state.ip_location_done = True
+                    st.success(f"📍 自动定位成功，当前城市：{auto_city}")
+                else:
+                    st.session_state.ip_location_done = True
+                    st.info(f"📍 定位到 {auto_city}，已使用默认城市：南通")
             else:
                 st.session_state.ip_location_done = True
-                st.info("📍 自动定位失败，可手动输入城市名")
+                st.info("📍 无法自动定位（非国内IP），已使用默认城市：南通")
 
-    # ========== 侧边栏：最近查询 ==========
+    # ========== 侧边栏 ==========
     st.sidebar.subheader("📚 最近查询")
     for i, city in enumerate(st.session_state.weather_history[-5:]):
         if st.sidebar.button(f"📍 {city}", key=f"h{i}"):
@@ -427,20 +464,18 @@ elif menu == "实时天气数据":
 
     st.subheader(f"📍 当前城市：{st.session_state.city}")
 
-    # ========== 获取天气数据 ==========
+    # ========== 获取天气 ==========
     with st.spinner(f"获取 {st.session_state.city} 天气..."):
         wc = seniverse_now(st.session_state.city)
         daily = seniverse_daily(st.session_state.city, 3)
         aqi_data = seniverse_aqi(st.session_state.city)
 
     if wc:
-        # 记录查询历史
         if wc["name"] not in st.session_state.weather_history:
             st.session_state.weather_history.append(wc["name"])
             if len(st.session_state.weather_history) > 10:
                 st.session_state.weather_history.pop(0)
 
-        # 主要天气信息
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("🏙️ 城市", wc["name"])
         c2.metric("🌤️ 天气", wc["text"])
@@ -449,8 +484,6 @@ elif menu == "实时天气数据":
         st.metric("💨 风速", f"{wc['wind']} m/s")
 
         st.divider()
-
-        # 空气质量
         st.subheader("🌫️ 空气质量 AQI")
         aqi_num = 70
         if aqi_data:
@@ -472,8 +505,6 @@ elif menu == "实时天气数据":
             st.info("ℹ️ 暂无AQI数据")
 
         st.divider()
-
-        # 未来3天预报
         st.subheader("📅 未来3天预报")
         if daily:
             cols = st.columns(3)
@@ -489,8 +520,6 @@ elif menu == "实时天气数据":
                     """, unsafe_allow_html=True)
 
         st.divider()
-
-        # 大兴安岭生态联动
         st.subheader("🌲 大兴安岭生态联动")
         tips_list = link_to_daxinganling(wc["temp"], aqi_num, wc["wind_dir"])
         for t in tips_list:
@@ -500,14 +529,12 @@ elif menu == "实时天气数据":
                 st.info(t)
 
         st.divider()
-
-        # 生活建议
         st.subheader("💡 今日生活建议")
         st.info(get_clothing_suggestion(wc["temp"]))
         st.info(get_sunscreen_suggestion(wc["text"]))
         st.info(get_outdoor_suggestion(wc["text"], wc["wind"], wc["temp"]))
 
-    # ========== 手动查询其他城市 ==========
+    # ========== 手动查询 ==========
     st.divider()
     st.subheader("🔍 查询其他城市")
     city_in = st.text_input("输入城市名：", key="manual_city")
@@ -517,7 +544,6 @@ elif menu == "实时天气数据":
             do = seniverse_daily(city_in, 3)
             ao = seniverse_aqi(city_in)
         if wo:
-            # 显示查询结果
             col_base = st.columns(3)
             with col_base[0]:
                 st.metric("🏙️ 城市", wo["name"])
