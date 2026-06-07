@@ -5,5 +5,5 @@ numpy
 scikit-learn
 streamlit-geolocation
 requests
-pytesseract
-Pillow
+pillow
+baidu-aip

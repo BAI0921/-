@@ -10,22 +10,27 @@ import requests
 import base64
 import random
 from datetime import datetime
+import io
 import re
-import pytesseract
 from PIL import Image
+from aip import AipOcr
 
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 warnings.filterwarnings('ignore')
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
 
-# ====================== 【重要】替换成你的阿里云图片链接 ======================
+# ====================== 阿里云图片链接 ======================
 ALIYUN_BG1 = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/static/daxinganling_bg.png"
 ALIYUN_BG2 = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/static/weather_bg.png"
 ALIYUN_STATIC = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/static/"
-# ===========================================================================
 
 from urllib.parse import quote
+
+# ---------------------- 百度OCR配置（直接用） ----------------------
+APP_ID = '25847663'
+API_KEY = 'yU3N9u9X7QjRb8fKv5D4s1G2'
+SECRET_KEY = 'aB3cD4eF5gH6iJ7kL8mN9oP0qR1sT2uV3wX4yZ5'
+client = AipOcr(APP_ID, API_KEY, SECRET_KEY)
 
 
 def set_background(img_url):
@@ -66,9 +71,7 @@ if 'water_bill' not in st.session_state:
 if 'heat_bill' not in st.session_state:
     st.session_state.heat_bill = 0
 
-# --------------------------
-# 心知天气配置
-# --------------------------
+# ---------------------- 心知天气配置 ----------------------
 SENIVERSE_KEY = "SyBQ06H2yR2RIEJn3"
 NOW_URL = "https://api.seniverse.com/v3/weather/now.json"
 DAILY_URL = "https://api.seniverse.com/v3/weather/daily.json"
@@ -224,14 +227,6 @@ def get_daily_fact():
     return random.choice(facts)
 
 
-def get_air_source_advice(wind_direction):
-    north = ["北风", "西北风", "西风", "东北风", "北", "西北", "西"]
-    for w in north:
-        if w in wind_direction:
-            return True, wind_direction
-    return False, wind_direction
-
-
 def link_to_daxinganling(temp, aqi, wind_dir):
     tips = []
     if any(k in wind_dir for k in ["北", "西北", "东北"]):
@@ -249,12 +244,20 @@ def link_to_daxinganling(temp, aqi, wind_dir):
     return tips
 
 
-# ====================== OCR账单识别核心函数 ======================
+# ---------------------- 百度OCR账单识别核心函数 ----------------------
 def extract_bill_from_image(img):
     try:
-        text = pytesseract.image_to_string(img, lang='chi_sim')
-        elec = gas = water = heat = 0
+        img_byte_arr = io.BytesIO()
+        img.save(img_byte_arr, format='PNG')
+        img_bytes = img_byte_arr.getvalue()
 
+        result = client.basicGeneral(img_bytes)
+        if result.get('words_result'):
+            text = '\n'.join([w['words'] for w in result['words_result']])
+        else:
+            text = ""
+
+        elec = gas = water = heat = 0.0
         elec_pattern = r"(电费|用电.*?金额|应付金额.*?电)\D*(\d+\.?\d*)"
         gas_pattern = r"(燃气费|燃气.*?金额|天然气)\D*(\d+\.?\d*)"
         water_pattern = r"(水费|用水.*?金额|自来水)\D*(\d+\.?\d*)"
@@ -276,21 +279,15 @@ def extract_bill_from_image(img):
         return 0, 0, 0, 0
 
 
-# --------------------------
-# 侧边栏
-# --------------------------
+# -------------------------- 侧边栏 --------------------------
 with st.sidebar:
     st.title("🌍 大兴安岭环境监测系统")
     menu = st.radio("请选择功能", ["大兴安岭气温分析", "实时天气数据"])
 
-# --------------------------
-# 主页面
-# --------------------------
+# -------------------------- 主页面 --------------------------
 st.title("📊 大兴安岭环境监测平台")
 
-# ==========================
-# 1. 大兴安岭气温分析
-# ==========================
+# ========================== 1. 大兴安岭气温分析 ==========================
 if menu == "大兴安岭气温分析":
     set_background(ALIYUN_BG1)
 
@@ -337,7 +334,6 @@ if menu == "大兴安岭气温分析":
         st.subheader("♻️ 生活缴费一键算碳 · 大兴安岭碳中和方案")
         st.markdown("### 📸 上传缴费单截图 → 自动识别金额计算碳中和")
 
-        # 图片上传 + OCR识别
         uploaded_file = st.file_uploader("上传电费/燃气费/水费/暖气费账单截图", type=["png", "jpg", "jpeg"])
         if uploaded_file is not None:
             img = Image.open(uploaded_file)
@@ -395,7 +391,7 @@ if menu == "大兴安岭气温分析":
         st.markdown("### 📊 月度碳排放量")
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("用电", f"{ce}kg")
-        col2.metric("用气", f"{cg}kg")
+        col2.metric("用气", f"{ce}kg")
         col3.metric("用水", f"{cw}kg")
         col4.metric("暖气", f"{ch}kg")
         st.metric("✅ 月度总碳排放", f"**{total} kg CO₂**")
@@ -417,9 +413,7 @@ if menu == "大兴安岭气温分析":
         st.info(
             "🌲 **大兴安岭森林碳汇价值**\n- 每公顷年固碳≈2.8吨\n- 保护冻土=保护天然碳汇\n- 落叶松是寒带最强固碳树种之一")
 
-# ==========================
-# 2. 实时天气数据
-# ==========================
+# ========================== 2. 实时天气数据 ==========================
 elif menu == "实时天气数据":
     set_background(ALIYUN_BG2)
     import math
@@ -459,20 +453,6 @@ elif menu == "实时天气数据":
         return gcjLng, gcjLat
 
 
-    def get_client_ip():
-        try:
-            resp = requests.get("https://api.ipify.org?format=json", timeout=6)
-            return resp.json()["ip"]
-        except:
-            try:
-                resp = requests.get("https://httpbin.org/ip", timeout=6)
-                return resp.json()["origin"].split(",")[0]
-            except:
-                return ""
-
-
-    if 'city' not in st.session_state:
-        st.session_state.city = "南通"
     if 'ip_location_done' not in st.session_state:
         st.session_state.ip_location_done = False
 
