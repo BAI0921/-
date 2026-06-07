@@ -3,5 +3,7 @@ pandas
 matplotlib
 numpy
 scikit-learn
+streamlit-geolocation
 requests
-streamlit_geolocation
+pytesseract
+Pillow

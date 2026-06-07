@@ -10,7 +10,11 @@ import requests
 import base64
 import random
 from datetime import datetime
+import re
+import pytesseract
+from PIL import Image
 
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 warnings.filterwarnings('ignore')
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
@@ -25,7 +29,6 @@ from urllib.parse import quote
 
 
 def set_background(img_url):
-    # CSS背景链接中文编码
     safe_url = quote(img_url, safe=':/')
     st.markdown(f"""
     <style>
@@ -54,6 +57,14 @@ if 'weather_history' not in st.session_state:
     st.session_state.weather_history = []
 if 'city' not in st.session_state:
     st.session_state.city = "南通"
+if 'elec_bill' not in st.session_state:
+    st.session_state.elec_bill = 0
+if 'gas_bill' not in st.session_state:
+    st.session_state.gas_bill = 0
+if 'water_bill' not in st.session_state:
+    st.session_state.water_bill = 0
+if 'heat_bill' not in st.session_state:
+    st.session_state.heat_bill = 0
 
 # --------------------------
 # 心知天气配置
@@ -238,6 +249,33 @@ def link_to_daxinganling(temp, aqi, wind_dir):
     return tips
 
 
+# ====================== OCR账单识别核心函数 ======================
+def extract_bill_from_image(img):
+    try:
+        text = pytesseract.image_to_string(img, lang='chi_sim')
+        elec = gas = water = heat = 0
+
+        elec_pattern = r"(电费|用电.*?金额|应付金额.*?电)\D*(\d+\.?\d*)"
+        gas_pattern = r"(燃气费|燃气.*?金额|天然气)\D*(\d+\.?\d*)"
+        water_pattern = r"(水费|用水.*?金额|自来水)\D*(\d+\.?\d*)"
+        heat_pattern = r"(暖气费|供暖|采暖)\D*(\d+\.?\d*)"
+
+        elec_match = re.search(elec_pattern, text, re.I)
+        gas_match = re.search(gas_pattern, text, re.I)
+        water_match = re.search(water_pattern, text, re.I)
+        heat_match = re.search(heat_pattern, text, re.I)
+
+        if elec_match: elec = float(elec_match.group(2))
+        if gas_match: gas = float(gas_match.group(2))
+        if water_match: water = float(water_match.group(2))
+        if heat_match: heat = float(heat_match.group(2))
+
+        return elec, gas, water, heat
+    except Exception as e:
+        st.error(f"识别失败：{str(e)}")
+        return 0, 0, 0, 0
+
+
 # --------------------------
 # 侧边栏
 # --------------------------
@@ -297,45 +335,57 @@ if menu == "大兴安岭气温分析":
 
     elif sub_menu == "🌲 生活缴费碳中和计算（新版）":
         st.subheader("♻️ 生活缴费一键算碳 · 大兴安岭碳中和方案")
-        st.markdown("### 选择家庭档位一键自动填充账单，也可微调金额")
+        st.markdown("### 📸 上传缴费单截图 → 自动识别金额计算碳中和")
 
-        if 'elec_bill' not in st.session_state: st.session_state.elec_bill = 0
-        if 'gas_bill' not in st.session_state: st.session_state.gas_bill = 0
-        if 'water_bill' not in st.session_state: st.session_state.water_bill = 0
-        if 'heat_bill' not in st.session_state: st.session_state.heat_bill = 0
+        # 图片上传 + OCR识别
+        uploaded_file = st.file_uploader("上传电费/燃气费/水费/暖气费账单截图", type=["png", "jpg", "jpeg"])
+        if uploaded_file is not None:
+            img = Image.open(uploaded_file)
+            st.image(img, caption="已上传账单", use_column_width=True)
+
+            with st.spinner("正在识别账单金额..."):
+                elec, gas, water, heat = extract_bill_from_image(img)
+                st.session_state.elec_bill = elec
+                st.session_state.gas_bill = gas
+                st.session_state.water_bill = water
+                st.session_state.heat_bill = heat
+                st.success(f"识别完成！\n电费：{elec}元 | 燃气费：{gas}元 | 水费：{water}元 | 暖气费：{heat}元")
+                st.rerun()
+
+        st.markdown("### 或选择家庭档位一键自动填充账单，也可微调金额")
 
         c1, c2, c3 = st.columns(3)
         with c1:
             if st.button("🏠 单人租房档"):
-                st.session_state.elec_bill = 80;
-                st.session_state.gas_bill = 30;
-                st.session_state.water_bill = 20;
-                st.session_state.heat_bill = 0;
+                st.session_state.elec_bill = 80
+                st.session_state.gas_bill = 30
+                st.session_state.water_bill = 20
+                st.session_state.heat_bill = 0
                 st.rerun()
         with c2:
             if st.button("👨‍👩‍👧 三口家常档"):
-                st.session_state.elec_bill = 160;
-                st.session_state.gas_bill = 55;
-                st.session_state.water_bill = 35;
-                st.session_state.heat_bill = 260;
+                st.session_state.elec_bill = 160
+                st.session_state.gas_bill = 55
+                st.session_state.water_bill = 35
+                st.session_state.heat_bill = 260
                 st.rerun()
         with c3:
             if st.button("🏡 多人大户型档"):
-                st.session_state.elec_bill = 260;
-                st.session_state.gas_bill = 80;
-                st.session_state.water_bill = 50;
-                st.session_state.heat_bill = 420;
+                st.session_state.elec_bill = 260
+                st.session_state.gas_bill = 80
+                st.session_state.water_bill = 50
+                st.session_state.heat_bill = 420
                 st.rerun()
 
         st.markdown("---")
-        st.markdown("### 📝 填写或修改账单金额")
+        st.markdown("### 📝 识别/填充后金额（可手动修改）")
         e = st.number_input("💡 电费", 0, value=st.session_state.elec_bill, step=10)
         g = st.number_input("🔥 燃气费", 0, value=st.session_state.gas_bill, step=10)
         w = st.number_input("🚰 水费", 0, value=st.session_state.water_bill, step=5)
         h = st.number_input("🏠 暖气费", 0, value=st.session_state.heat_bill, step=50)
-        st.session_state.elec_bill = e;
-        st.session_state.gas_bill = g;
-        st.session_state.water_bill = w;
+        st.session_state.elec_bill = e
+        st.session_state.gas_bill = g
+        st.session_state.water_bill = w
         st.session_state.heat_bill = h
 
         ce, cg, cw, ch, total = calculate_from_bill(e, g, w, h)
@@ -368,30 +418,34 @@ if menu == "大兴安岭气温分析":
             "🌲 **大兴安岭森林碳汇价值**\n- 每公顷年固碳≈2.8吨\n- 保护冻土=保护天然碳汇\n- 落叶松是寒带最强固碳树种之一")
 
 # ==========================
-# 2. 实时天气数据（IP定位版 - 修复国外城市问题）
+# 2. 实时天气数据
 # ==========================
 elif menu == "实时天气数据":
     set_background(ALIYUN_BG2)
     import math
+
     st.header("🌤 全球实时天气查询")
 
-    # WGS84转GCJ02（高德专用坐标转换，解决飘南通关键）
+
     def wgs84_to_gcj02(lng, lat):
         PI = 3.14159265358979324
         a = 6378245.0
         ee = 0.006693421622965943
+
         def transformLat(x, y):
             ret = -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * math.sqrt(abs(x))
             ret += (20.0 * math.sin(6.0 * x * PI) + 20.0 * math.sin(2.0 * x * PI)) * 2.0 / 3.0
             ret += (20.0 * math.sin(y * PI) + 40.0 * math.sin(y / 3.0 * PI)) * 2.0 / 3.0
             ret += (160.0 * math.sin(y / 12.0 * PI) + 320 * math.sin(y / 30.0 * PI)) * 2.0 / 3.0
             return ret
+
         def transformLng(x, y):
             ret = 300.0 + x + 2.0 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * math.sqrt(abs(x))
             ret += (20.0 * math.sin(6.0 * x * PI) + 20.0 * math.sin(2.0 * x * PI)) * 2.0 / 3.0
             ret += (20.0 * math.sin(x * PI) + 40.0 * math.sin(x / 3.0 * PI)) * 2.0 / 3.0
             ret += (150.0 * math.sin(x / 12.0 * PI) + 300.0 * math.sin(x / 30.0 * PI)) * 2.0 / 3.0
             return ret
+
         dLat = transformLat(lng - 105.0, lat - 35.0)
         dLng = transformLng(lng - 105.0, lat - 35.0)
         radLat = lat / 180.0 * PI
@@ -404,6 +458,7 @@ elif menu == "实时天气数据":
         gcjLat = lat + dLat
         return gcjLng, gcjLat
 
+
     def get_client_ip():
         try:
             resp = requests.get("https://api.ipify.org?format=json", timeout=6)
@@ -414,6 +469,7 @@ elif menu == "实时天气数据":
                 return resp.json()["origin"].split(",")[0]
             except:
                 return ""
+
 
     if 'city' not in st.session_state:
         st.session_state.city = "南通"
@@ -427,10 +483,8 @@ elif menu == "实时天气数据":
         lon = location.get("longitude")
         auto_city = None
         if lat and lon:
-            # 关键：WGS坐标转为GCJ02再传给高德
             gcj_lon, gcj_lat = wgs84_to_gcj02(lon, lat)
             amap_key = "e73c79c1fdce8187e310ba247a163ae5"
-            # radius改成300米，缩小定位范围，减少跨市漂移
             res = requests.get(
                 f"https://restapi.amap.com/v3/geocode/regeo?key={amap_key}&location={gcj_lon},{gcj_lat}&radius=300").json()
             if res["status"] == "1":
@@ -450,48 +504,53 @@ elif menu == "实时天气数据":
     st.subheader(f"📍当前查询城市：{st.session_state.city}")
     st.divider()
 
-    # 快捷按钮
     st.markdown("#### ⚡快捷点选城市")
-    r1c1,r1c2,r1c3,r1c4,r1c5 = st.columns(5)
+    r1c1, r1c2, r1c3, r1c4, r1c5 = st.columns(5)
     with r1c1:
         if st.button("南通"):
-            st.session_state.city = "南通";st.rerun()
+            st.session_state.city = "南通";
+            st.rerun()
     with r1c2:
         if st.button("南京"):
-            st.session_state.city = "南京";st.rerun()
+            st.session_state.city = "南京";
+            st.rerun()
     with r1c3:
         if st.button("苏州"):
-            st.session_state.city = "苏州";st.rerun()
+            st.session_state.city = "苏州";
+            st.rerun()
     with r1c4:
         if st.button("无锡"):
-            st.session_state.city = "无锡";st.rerun()
+            st.session_state.city = "无锡";
+            st.rerun()
     with r1c5:
         if st.button("泰州"):
-            st.session_state.city = "泰州";st.rerun()
+            st.session_state.city = "泰州";
+            st.rerun()
 
-    r2c1,r2c2,r2c3,r2c4 = st.columns(4)
+    r2c1, r2c2, r2c3, r2c4 = st.columns(4)
     with r2c1:
         if st.button("上海"):
-            st.session_state.city = "上海";st.rerun()
+            st.session_state.city = "上海";
+            st.rerun()
     with r2c2:
         if st.button("杭州"):
-            st.session_state.city = "杭州";st.rerun()
+            st.session_state.city = "杭州";
+            st.rerun()
     with r2c3:
         if st.button("北京"):
-            st.session_state.city = "北京";st.rerun()
+            st.session_state.city = "北京";
+            st.rerun()
     with r2c4:
         if st.button("广州"):
-            st.session_state.city = "广州";st.rerun()
+            st.session_state.city = "广州";
+            st.rerun()
 
-    # 手动输入
     st.divider()
     input_city = st.text_input("✍手动输入城市名称（如：常州、成都）：")
     if input_city.strip() != "":
         st.session_state.city = input_city.strip()
         st.rerun()
 
-    # 下面你原本查询天气、渲染数据的代码不动，接着往下写
-    # ========== 获取天气 ==========
     with st.spinner(f"获取 {st.session_state.city} 天气..."):
         wc = seniverse_now(st.session_state.city)
         daily = seniverse_daily(st.session_state.city, 3)
@@ -505,7 +564,6 @@ elif menu == "实时天气数据":
 
         st.divider()
         st.subheader("🌤 当前天气")
-        # 自适应横排
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("🏙 城市", wc["name"])
         col2.metric("🌤 天气", wc["text"])
@@ -519,7 +577,6 @@ elif menu == "实时天气数据":
         if aqi_data:
             aq, ql, pm = aqi_data["aqi"], aqi_data["quality"], aqi_data["pm25"]
             aqi_num = aq
-            # ✅ 空气质量 横排 3列
             ca1, ca2, ca3 = st.columns(3)
             ca1.metric("AQI", aq)
             ca2.metric("等级", ql)
@@ -565,7 +622,6 @@ elif menu == "实时天气数据":
         st.info(get_sunscreen_suggestion(wc["text"]))
         st.info(get_outdoor_suggestion(wc["text"], wc["wind"], wc["temp"]))
 
-        # ========== 手动查询 ==========
     st.divider()
     st.subheader("🔍 查询其他城市")
     city_in = st.text_input("输入城市名：", key="manual_city")
