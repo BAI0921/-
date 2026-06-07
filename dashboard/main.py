@@ -13,8 +13,8 @@ from datetime import datetime
 import io
 import re
 from PIL import Image
-# ====================== 替换：百度OCR → 国产PaddleOCR ======================
-from paddleocr import PaddleOCR
+# ============ 只改这里：换成 RapidOCR ============
+from rapidocr_onnxruntime import RapidOCR
 
 warnings.filterwarnings('ignore')
 plt.rcParams['font.sans-serif'] = ['SimHei']
@@ -27,10 +27,10 @@ ALIYUN_STATIC = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/static/"
 
 from urllib.parse import quote
 
-# ====================== 加载国产PaddleOCR（缓存加速） ======================
+# ============ 初始化 RapidOCR（缓存） ============
 @st.cache_resource
 def init_ocr():
-    return PaddleOCR(use_angle_cls=True, lang="ch", show_log=False)
+    return RapidOCR()
 
 ocr_model = init_ocr()
 
@@ -245,13 +245,13 @@ def link_to_daxinganling(temp, aqi, wind_dir):
     return tips
 
 
-# ====================== 替换：PaddleOCR 账单识别（完全兼容你原有逻辑） ======================
+# ============ 替换后的 OCR 函数（这里整个换掉） ============
 def extract_bill_from_image(img):
     try:
-        result = ocr_model.ocr(np.array(img), cls=True)
+        result, _ = ocr_model(img)
         text = ""
-        if result and result[0]:
-            text = "\n".join([line[1][0] for line in result[0]])
+        if result:
+            text = "\n".join([line[1] for line in result])
 
         elec = gas = water = heat = 0.0
         elec_pattern = r"(电费|用电.*?金额|应付金额.*?电)\D*(\d+\.?\d*)"

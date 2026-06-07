@@ -6,5 +6,4 @@ scikit-learn
 streamlit-geolocation
 requests
 pillow
-paddlepaddle
-paddleocr
+rapidocr-onnxruntime
