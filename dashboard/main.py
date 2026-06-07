@@ -13,7 +13,8 @@ from datetime import datetime
 import io
 import re
 from PIL import Image
-from aip import AipOcr
+# ====================== 替换：百度OCR → 国产PaddleOCR ======================
+from paddleocr import PaddleOCR
 
 warnings.filterwarnings('ignore')
 plt.rcParams['font.sans-serif'] = ['SimHei']
@@ -26,12 +27,12 @@ ALIYUN_STATIC = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/static/"
 
 from urllib.parse import quote
 
-# ---------------------- 百度OCR配置（直接用） ----------------------
-APP_ID = '25847663'
-API_KEY = 'yU3N9u9X7QjRb8fKv5D4s1G2'
-SECRET_KEY = 'aB3cD4eF5gH6iJ7kL8mN9oP0qR1sT2uV3wX4yZ5'
-client = AipOcr(APP_ID, API_KEY, SECRET_KEY)
+# ====================== 加载国产PaddleOCR（缓存加速） ======================
+@st.cache_resource
+def init_ocr():
+    return PaddleOCR(use_angle_cls=True, lang="ch", show_log=False)
 
+ocr_model = init_ocr()
 
 def set_background(img_url):
     safe_url = quote(img_url, safe=':/')
@@ -244,18 +245,13 @@ def link_to_daxinganling(temp, aqi, wind_dir):
     return tips
 
 
-# ---------------------- 百度OCR账单识别核心函数 ----------------------
+# ====================== 替换：PaddleOCR 账单识别（完全兼容你原有逻辑） ======================
 def extract_bill_from_image(img):
     try:
-        img_byte_arr = io.BytesIO()
-        img.save(img_byte_arr, format='PNG')
-        img_bytes = img_byte_arr.getvalue()
-
-        result = client.basicGeneral(img_bytes)
-        if result.get('words_result'):
-            text = '\n'.join([w['words'] for w in result['words_result']])
-        else:
-            text = ""
+        result = ocr_model.ocr(np.array(img), cls=True)
+        text = ""
+        if result and result[0]:
+            text = "\n".join([line[1][0] for line in result[0]])
 
         elec = gas = water = heat = 0.0
         elec_pattern = r"(电费|用电.*?金额|应付金额.*?电)\D*(\d+\.?\d*)"
@@ -391,7 +387,7 @@ if menu == "大兴安岭气温分析":
         st.markdown("### 📊 月度碳排放量")
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("用电", f"{ce}kg")
-        col2.metric("用气", f"{ce}kg")
+        col2.metric("用气", f"{cg}kg")
         col3.metric("用水", f"{cw}kg")
         col4.metric("暖气", f"{ch}kg")
         st.metric("✅ 月度总碳排放", f"**{total} kg CO₂**")
