@@ -3,7 +3,5 @@ pandas
 matplotlib
 numpy
 scikit-learn
-streamlit-geolocation
 requests
-pillow
-rapidocr-onnxruntime
+streamlit_geolocation
