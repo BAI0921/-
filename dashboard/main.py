@@ -24,26 +24,11 @@ ALIYUN_STATIC = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/static/"
 from urllib.parse import quote
 
 
-def set_background(img_url, is_green=False):
+def set_background(img_url):
     # CSS背景链接中文编码
     safe_url = quote(img_url, safe=':/')
-
-    # 只有 is_green=True 才启用绿色字体
-    green_css = ""
-    if is_green:
-        green_css = """
-        /* 仅大兴安岭界面：绿色字体 */
-        html, body, [data-testid="stAppViewContainer"], .stMarkdown, .stText, 
-        h1, h2, h3, h4, h5, h6, p, div, span, li, .metric-text {
-            color: #00CC66 !important;
-            font-weight: 500 !important;
-        }
-        """
-
     st.markdown(f"""
     <style>
-    {green_css}
-
     [data-testid="stAppViewContainer"] {{
         background-image: url("{safe_url}");
         background-size: cover !important;
@@ -269,7 +254,7 @@ st.title("📊 大兴安岭环境监测平台")
 # 1. 大兴安岭气温分析
 # ==========================
 if menu == "大兴安岭气温分析":
-    set_background(ALIYUN_BG1, is_green=True)
+    set_background(ALIYUN_BG1)
 
     st.info(f"🌲 **今日·大兴安岭**\n\n{get_daily_fact()}")
 
@@ -386,7 +371,7 @@ if menu == "大兴安岭气温分析":
 # 2. 实时天气数据（IP定位版 - 修复国外城市问题）
 # ==========================
 elif menu == "实时天气数据":
-    set_background(ALIYUN_BG2, is_green=False)
+    set_background(ALIYUN_BG2)
     import math
     st.header("🌤 全球实时天气查询")
 
