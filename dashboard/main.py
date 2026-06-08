@@ -29,6 +29,13 @@ def set_background(img_url):
     safe_url = quote(img_url, safe=':/')
     st.markdown(f"""
     <style>
+    /* 全局字体全部改为绿色 */
+    html, body, [data-testid="stAppViewContainer"], .stMarkdown, .stText, 
+    h1, h2, h3, h4, h5, h6, p, div, span, li, .metric-text {{
+        color: #00CC66 !important; /* 清新森林绿，可自行修改颜色 */
+        font-weight: 500 !important;
+    }}
+
     [data-testid="stAppViewContainer"] {{
         background-image: url("{safe_url}");
         background-size: cover !important;
