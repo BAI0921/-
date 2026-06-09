@@ -28,6 +28,7 @@ CAROUSEL_IMGS = [
 ]
 
 # ---------- 轮播模块（自动+手动，稳定版） ----------
+# ======================== 自动轮播（单图区域） ========================
 st.subheader("📷 大兴安岭生态介绍")
 
 # 初始化状态
@@ -36,35 +37,30 @@ if 'carousel_idx' not in st.session_state:
 if 'last_switch_time' not in st.session_state:
     st.session_state.last_switch_time = time.time()
 
-# 用占位符放图片（关键：只刷新占位符，不整页乱刷）
-img_placeholder = st.empty()
-
-# 自动轮播（5秒）
+# 自动切换：4秒换一张
 now_time = time.time()
-if now_time - st.session_state.last_switch_time >= 5:
+if now_time - st.session_state.last_switch_time > 4:
     st.session_state.carousel_idx = (st.session_state.carousel_idx + 1) % len(CAROUSEL_IMGS)
     st.session_state.last_switch_time = now_time
 
-# 显示当前图片
+# 同一位置显示当前图
 current_img = CAROUSEL_IMGS[st.session_state.carousel_idx]
-img_placeholder.image(
+st.image(
     current_img,
     use_container_width=True,
-    caption=f"图文介绍 {st.session_state.carousel_idx + 1}/{len(CAROUSEL_IMGS)}"
+    caption=f"图文介绍 {st.session_state.carousel_idx + 1} / {len(CAROUSEL_IMGS)}"
 )
 
-# 手动按钮（key 唯一，不报错）
-col1, col2, col3, col4, col5 = st.columns([1,1,1,1,1])
+# 手动切换按钮
+col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1])
 with col2:
-    if st.button("◀ 上一张", key="prev_btn"):
+    if st.button("◀ 上一张", key="prev1"):
         st.session_state.carousel_idx = (st.session_state.carousel_idx - 1) % len(CAROUSEL_IMGS)
-        st.session_state.last_switch_time = time.time()
 with col4:
-    if st.button("下一张 ▶", key="next_btn"):
+    if st.button("下一张 ▶", key="next1"):
         st.session_state.carousel_idx = (st.session_state.carousel_idx + 1) % len(CAROUSEL_IMGS)
-        st.session_state.last_switch_time = time.time()
 
-st.caption("⏰ 自动播放中（每5秒切换）")
+st.caption("🔄 每4秒自动切换图片")
 st.divider()
 from urllib.parse import quote
 
