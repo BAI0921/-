@@ -33,45 +33,49 @@ CAROUSEL_IMGS = [
 # 轮播图列表（必须定义在轮播模块之前）
 # ========== 图片轮播模块（不会报错的终极版） ==========
 # ========== 图片轮播模块（无报错终极版） ==========
-st.subheader("📷 大兴安岭生态介绍")
-# 初始化轮播状态（防止刷新报错）
-if 'carousel_idx' not in st.session_state:
-    st.session_state.carousel_idx = 0
-if 'last_switch_time' not in st.session_state:
-    st.session_state.last_switch_time = time.time()
+def show_carousel():
+    # 初始化轮播状态
+    if 'carousel_idx' not in st.session_state:
+        st.session_state.carousel_idx = 0
+    if 'last_switch_time' not in st.session_state:
+        st.session_state.last_switch_time = time.time()
 
-# 自动轮播：10秒切换一次
-now_time = time.time()
-if now_time - st.session_state.last_switch_time > 10:
-    st.session_state.carousel_idx = (st.session_state.carousel_idx + 1) % len(CAROUSEL_IMGS)
-    st.session_state.last_switch_time = now_time
-
-# 用HTML img标签渲染，强制在页面内显示，不触发下载
-current_img = CAROUSEL_IMGS[st.session_state.carousel_idx]
-st.markdown(f"""
-<div style="text-align:center; padding:10px;">
-    <img 
-        src="{current_img}" 
-        style="width:100%; max-width:1000px; border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,0.15);" 
-        alt="大兴安岭生态介绍"
-    >
-    <p style="color:#00CC66; font-size:16px; margin-top:10px;">
-        图文介绍 {st.session_state.carousel_idx + 1}/{len(CAROUSEL_IMGS)}
-    </p>
-</div>
-""", unsafe_allow_html=True)
-
-# 手动切换按钮（加了唯一key，解决重复ID报错）
-col_prev, col_next = st.columns(2)
-with col_prev:
-    if st.button("⬅️ 上一张", key="carousel_prev_btn"):
-        st.session_state.carousel_idx = (st.session_state.carousel_idx - 1) % len(CAROUSEL_IMGS)
-        st.rerun()
-with col_next:
-    if st.button("下一张 ➡️", key="carousel_next_btn"):
+    # 自动轮播：5秒切换一次（改成5秒方便测试）
+    now_time = time.time()
+    if now_time - st.session_state.last_switch_time > 5:
         st.session_state.carousel_idx = (st.session_state.carousel_idx + 1) % len(CAROUSEL_IMGS)
-        st.rerun()
-st.divider()
+        st.session_state.last_switch_time = now_time
+
+    # 显示当前图片（使用st.image更稳定）
+    current_img = CAROUSEL_IMGS[st.session_state.carousel_idx]
+
+    # 尝试使用st.image，如果失败则用HTML
+    try:
+        st.image(current_img,
+                 use_container_width=True,  # 注意：新版streamlit用use_container_width代替use_column_width
+                 caption=f"图文介绍 {st.session_state.carousel_idx + 1}/{len(CAROUSEL_IMGS)}")
+    except:
+        # 备选方案：使用HTML img标签
+        st.markdown(f"""
+        <div style="text-align:center; padding:10px;">
+            <img src="{current_img}" 
+                 style="width:100%; max-width:800px; border-radius:12px;" 
+                 alt="大兴安岭生态介绍"
+                 onerror="this.onerror=null; this.src='https://via.placeholder.com/800x400?text=图片加载失败';">
+            <p>图文介绍 {st.session_state.carousel_idx + 1}/{len(CAROUSEL_IMGS)}</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # 手动切换按钮
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col1:
+        if st.button("⬅️ 上一张", key="prev_carousel"):
+            st.session_state.carousel_idx = (st.session_state.carousel_idx - 1) % len(CAROUSEL_IMGS)
+            st.rerun()
+    with col3:
+        if st.button("下一张 ➡️", key="next_carousel"):
+            st.session_state.carousel_idx = (st.session_state.carousel_idx + 1) % len(CAROUSEL_IMGS)
+            st.rerun()
 from urllib.parse import quote
 
 
