@@ -25,10 +25,9 @@ ALIYUN_STATIC = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/"
 
 # 轮播图列表（现在路径正确了）
 CAROUSEL_IMGS = [
-    ALIYUN_STATIC + "bingchuan.png",
-    ALIYUN_STATIC + "daxinganlingshu.png",
-    ALIYUN_STATIC + "kanshu.png",
-    ALIYUN_STATIC + "zhiliduibi.png"
+    ALIYUN_STATIC + "img1.png",
+    ALIYUN_STATIC + "img2.png",
+    ALIYUN_STATIC + "img3.png"
 ]
 # ========== 修复后的图片轮播模块（自动播放+手动切换） ==========
 st.subheader("📷 大兴安岭生态介绍")
