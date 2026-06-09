@@ -192,34 +192,46 @@ if menu == "大兴安岭气温分析":
     st.divider()
 
     # ======================== 唯一的轮播（只在这里出现） ========================
+    # ==========================
+    # 1. 大兴安岭气温分析
+    # ==========================
     if menu == "大兴安岭气温分析":
         set_background(ALIYUN_BG1, is_green=True)
         st.info(f"🌲 **今日·大兴安岭**\n\n{get_daily_fact()}")
         st.divider()
 
+        # ====================== ✅ 真正自动轮播（前端JS，永不失效） ======================
         st.subheader("📷 大兴安岭生态介绍")
 
-        # 拼接图片地址为JS数组
-        img_list = [f'"{url}"' for url in CAROUSEL_IMGS]
-        img_js = ",".join(img_list)
+        images = CAROUSEL_IMGS  # 你的3张阿里云图片
 
-        # HTML+JS 前端自动轮播（4秒切换，无页面刷新）
-        carousel_html = f"""
-        <div style="text-align:center; max-width:1000px; margin:0 auto;">
-            <img id="loopImg" src="{CAROUSEL_IMGS[0]}" style="width:100%; border-radius:8px;">
-            <p style="margin-top:8px; color:#00CC66;">🔄 每4秒自动切换</p>
+        carousel_code = """
+        <div style="width: 100%; text-align: center;">
+            <img id="carousel" src="IMG_SRC" style="width:100%; border-radius:12px;">
         </div>
+
         <script>
-            const imgs = [{img_js}];
-            let idx = 0;
-            setInterval(function(){{
-                idx = (idx + 1) % imgs.length;
-                document.getElementById('loopImg').src = imgs[idx];
-            }}, 4000);
+        var images = [IMAGES];
+        var index = 0;
+
+        function showSlide() {
+            document.getElementById("carousel").src = images[index];
+            index = (index + 1) % images.length;
+        }
+
+        // 4秒自动切换
+        setInterval(showSlide, 4000);
+        showSlide();
         </script>
         """
-        st.markdown(carousel_html, unsafe_allow_html=True)
+
+        # 把图片列表注入JS
+        img_str = ",".join([f'"{img}"' for img in images])
+        final_html = carousel_code.replace("IMAGES", img_str).replace("IMG_SRC", images[0])
+        st.markdown(final_html, unsafe_allow_html=True)
+        st.caption("🔄 每4秒自动轮播中")
         st.divider()
+
     # ============================================================================
 
     st.header("🌡 大兴安岭气温数据分析")
