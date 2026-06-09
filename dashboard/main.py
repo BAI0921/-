@@ -10,23 +10,39 @@ import requests
 import base64
 import random
 from datetime import datetime
+import time
+import os
 
 warnings.filterwarnings('ignore')
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
 
-# ====================== 【重要】替换成你的阿里云图片链接 ======================
-ALIYUN_BG1 = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/static/daxinganling_bg.png"
-ALIYUN_BG2 = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/static/weather_bg.png"
-ALIYUN_STATIC = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/static/"
-# ===========================================================================
+# ====================== 本地图片路径配置 ======================
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+
+# 背景图路径
+ALIYUN_BG1 = os.path.join(STATIC_DIR, "daxinganling_bg.png")
+ALIYUN_BG2 = os.path.join(STATIC_DIR, "weather_bg.png")
+
+# 轮播图列表（直接用你文件夹里的图片）
+CAROUSEL_IMGS = [
+    os.path.join(STATIC_DIR, "bingchuan.png"),
+    os.path.join(STATIC_DIR, "daxinganlingshu.png"),
+    os.path.join(STATIC_DIR, "kanshu.png"),
+    os.path.join(STATIC_DIR, "zhiliduibi.png")
+]
+# ===========================================================
 
 from urllib.parse import quote
 
 
-def set_background(img_url, is_green=False):
-    # CSS背景链接中文编码
-    safe_url = quote(img_url, safe=':/')
+def set_background(img_path, is_green=False):
+    # 读取本地图片并转为base64，解决Streamlit本地背景问题
+    def get_base64(path):
+        with open(path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    img_base64 = get_base64(img_path)
 
     # 只有 is_green=True 才启用绿色字体
     green_css = ""
@@ -45,7 +61,7 @@ def set_background(img_url, is_green=False):
     {green_css}
 
     [data-testid="stAppViewContainer"] {{
-        background-image: url("{safe_url}");
+        background-image: url("data:image/png;base64,{img_base64}");
         background-size: cover !important;
         background-position: center !important;
         background-attachment: fixed !important;
@@ -58,6 +74,11 @@ def set_background(img_url, is_green=False):
     .block-container {{
         background-color: rgba(0,0,0,0.05) !important;
     }}
+    /* 轮播图样式优化 */
+    .carousel-img {{
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+    }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -69,6 +90,11 @@ if 'weather_history' not in st.session_state:
     st.session_state.weather_history = []
 if 'city' not in st.session_state:
     st.session_state.city = "南通"
+# 轮播图状态
+if 'carousel_idx' not in st.session_state:
+    st.session_state.carousel_idx = 0
+if 'last_switch_time' not in st.session_state:
+    st.session_state.last_switch_time = time.time()
 
 # --------------------------
 # 心知天气配置
@@ -266,17 +292,39 @@ with st.sidebar:
 st.title("📊 大兴安岭环境监测平台")
 
 # ==========================
-# 1. 大兴安岭气温分析
+# 1. 大兴安岭气温分析（本地轮播版）
 # ==========================
 if menu == "大兴安岭气温分析":
     set_background(ALIYUN_BG1, is_green=True)
 
     st.info(f"🌲 **今日·大兴安岭**\n\n{get_daily_fact()}")
+    st.divider()
 
-    st.markdown("""
-在全球变暖的持续驱动下，大兴安岭生态系统正经历着从缓慢适应到剧烈转折的深刻演变。2017年以前，区域整体处于缓慢升温、偏冷湿的状态，特别是在2011至2015年间，生态系统长期适应稳定，气候的微小波动并未打破原有格局，呈现出落叶松占优、冻土稳定、湿地发育良好且耐寒物种稳定的低扰动特征。然而，2017年后区域气候进入加速暖干化与极端高温干旱频发阶段，并在2020至2024年间迎来关键拐点，气候改变从"小幅扰动"彻底转变为结构性冲击。气温的持续攀升首先加速了冻土的消融，进而引发湿地大面积萎缩，并推动原生针叶林逐步被北侵的阔叶林取代。这种生境的剧烈改变不仅造成生物物候错位、珍稀寒带物种衰退和生物多样性降低，还导致森林灾害频发。与此同时，土壤退化与区域碳汇功能的减弱，伴随着地质灾害、火灾及病虫害风险的全面上升，标志着整个寒温带生态系统正面临不可逆的结构性改变与持续攀升的生态风险。
-""")
+    # ========== 图片轮播模块（本地图片） ==========
+    st.subheader("📷 大兴安岭生态介绍")
+    # 自动轮播：10秒切换一次
+    now_time = time.time()
+    if now_time - st.session_state.last_switch_time > 10:
+        st.session_state.carousel_idx = (st.session_state.carousel_idx + 1) % len(CAROUSEL_IMGS)
+        st.session_state.last_switch_time = now_time
 
+    # 展示当前轮播图
+    current_img = CAROUSEL_IMGS[st.session_state.carousel_idx]
+    st.image(current_img, use_column_width=True, caption=f"图文介绍 {st.session_state.carousel_idx + 1}/{len(CAROUSEL_IMGS)}")
+
+    # 手动切换按钮
+    col_prev, col_next = st.columns(2)
+    with col_prev:
+        if st.button("⬅️ 上一张"):
+            st.session_state.carousel_idx = (st.session_state.carousel_idx - 1) % len(CAROUSEL_IMGS)
+            st.rerun()
+    with col_next:
+        if st.button("下一张 ➡️"):
+            st.session_state.carousel_idx = (st.session_state.carousel_idx + 1) % len(CAROUSEL_IMGS)
+            st.rerun()
+    st.divider()
+
+    # ========== 原有数据分析模块完全保留（读取本地图片） ==========
     st.header("🌡 大兴安岭气温数据分析")
     sub_menu = st.selectbox(
         "选择分析类型",
@@ -285,7 +333,7 @@ if menu == "大兴安岭气温分析":
 
 
     def show_image(f):
-        st.image(ALIYUN_STATIC + f)
+        st.image(os.path.join(STATIC_DIR, f))
 
 
     if sub_menu == "2013-2017年气温统计分析":
@@ -383,7 +431,7 @@ if menu == "大兴安岭气温分析":
             "🌲 **大兴安岭森林碳汇价值**\n- 每公顷年固碳≈2.8吨\n- 保护冻土=保护天然碳汇\n- 落叶松是寒带最强固碳树种之一")
 
 # ==========================
-# 2. 实时天气数据（IP定位版 - 修复国外城市问题）
+# 2. 实时天气数据（原有代码完全不变）
 # ==========================
 elif menu == "实时天气数据":
     set_background(ALIYUN_BG2, is_green=False)
@@ -505,7 +553,6 @@ elif menu == "实时天气数据":
         st.session_state.city = input_city.strip()
         st.rerun()
 
-    # 下面你原本查询天气、渲染数据的代码不动，接着往下写
     # ========== 获取天气 ==========
     with st.spinner(f"获取 {st.session_state.city} 天气..."):
         wc = seniverse_now(st.session_state.city)
@@ -580,7 +627,7 @@ elif menu == "实时天气数据":
         st.info(get_sunscreen_suggestion(wc["text"]))
         st.info(get_outdoor_suggestion(wc["text"], wc["wind"], wc["temp"]))
 
-        # ========== 手动查询 ==========
+    # ========== 手动查询 ==========
     st.divider()
     st.subheader("🔍 查询其他城市")
     city_in = st.text_input("输入城市名：", key="manual_city")
