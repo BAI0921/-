@@ -93,9 +93,15 @@ if 'ip_location_done' not in st.session_state:
     st.session_state.ip_location_done = False
 
 # ==================== 心知天气 V3 配置 ====================
-SENIVERSE_KEY = "PUof6N-OT07myjnhE"
+SENIVERSE_KEY = "SyBQ06H2yR2RIEJn3"
 # ========================================================
 
+# ==================== 高德地图配置（仅用于定位） ====================
+# 🔑 请在这里填入你的高德地图Web服务密钥
+AMAP_KEY = "1b8bdff1cdbef4cd8498d75835117cd4"
+# ================================================================
+
+# 心知天气接口
 NOW_URL = "https://api.seniverse.com/v3/weather/now.json"
 DAILY_URL = "https://api.seniverse.com/v3/weather/daily.json"
 AQI_URL = "https://api.seniverse.com/v3/air/now.json"
@@ -129,30 +135,28 @@ def wgs84_to_gcj02(lng, lat):
     return lng + dLng, lat + dLat
 
 
-def get_location_city():
-    """获取定位城市（只执行一次）"""
+def get_city_by_location():
+    """通过高德地图逆地理编码获取城市"""
     try:
         location = streamlit_geolocation()
         lat = location.get("latitude")
         lon = location.get("longitude")
+
         if lat and lon:
             gcj_lon, gcj_lat = wgs84_to_gcj02(lon, lat)
-            amap_key = "e73c79c1fdce8187e310ba247a163ae5"
-            res = requests.get(
-                f"https://restapi.amap.com/v3/geocode/regeo?key={amap_key}&location={gcj_lon},{gcj_lat}&radius=300",
-                timeout=5
-            ).json()
-            if res["status"] == "1":
-                city = res["regeocode"]["addressComponent"]["city"].replace("市", "")
-                if city:
-                    return city
+            url = f"https://restapi.amap.com/v3/geocode/regeo?key={AMAP_KEY}&location={gcj_lon},{gcj_lat}"
+            res = requests.get(url, timeout=5).json()
+            if res.get("status") == "1":
+                city = res.get("regeocode", {}).get("addressComponent", {}).get("city", "")
+                if city and city != []:
+                    return city.replace("市", "")
     except:
         pass
     return None
 
 
 def get_weather_now(city):
-    """只获取实时天气"""
+    """获取实时天气（心知天气）"""
     params = {"key": SENIVERSE_KEY, "location": city, "language": "zh-Hans", "unit": "c"}
     try:
         r = requests.get(NOW_URL, params=params, timeout=8)
@@ -169,12 +173,13 @@ def get_weather_now(city):
                 "wind_dir": now.get("wind_direction", "北风")
             }
     except Exception as e:
+        st.error(f"天气获取失败: {e}")
         return None
     return None
 
 
 def get_weather_daily(city):
-    """获取3天预报（按需加载）"""
+    """获取逐日天气预报（心知天气）"""
     params = {"key": SENIVERSE_KEY, "location": city, "language": "zh-Hans", "unit": "c", "start": 0, "days": 3}
     try:
         r = requests.get(DAILY_URL, params=params, timeout=8)
@@ -187,7 +192,7 @@ def get_weather_daily(city):
 
 
 def get_weather_aqi(city):
-    """获取空气质量（按需加载）"""
+    """获取空气质量（心知天气）"""
     params = {"key": SENIVERSE_KEY, "location": city, "language": "zh-Hans"}
     try:
         r = requests.get(AQI_URL, params=params, timeout=8)
@@ -204,9 +209,16 @@ def get_weather_aqi(city):
     return None
 
 
-def get_weather_hourly(city):
-    """获取逐小时预报（按需加载）"""
-    params = {"key": SENIVERSE_KEY, "location": city, "language": "zh-Hans", "unit": "c", "start": 0, "hours": 24}
+def get_weather_hourly(city, hours=24):
+    """获取逐小时天气预报（心知天气）"""
+    params = {
+        "key": SENIVERSE_KEY,
+        "location": city,
+        "language": "zh-Hans",
+        "unit": "c",
+        "start": 0,
+        "hours": min(hours, 24)
+    }
     try:
         r = requests.get(HOURLY_URL, params=params, timeout=8)
         data = r.json()
@@ -428,18 +440,18 @@ elif menu == "🌲 碳足迹碳中和计算":
 # 实时天气页面
 elif menu == "实时天气数据":
     set_background(ALIYUN_BG2, is_green=False)
-    st.header("🌤 实时天气查询")
+    st.header("🌤 实时天气查询（心知天气）")
 
-    # ========== IP定位（只执行一次） ==========
+    # ========== 高德定位（只执行一次） ==========
     if not st.session_state.ip_location_done:
         with st.spinner("📍 正在获取您的位置..."):
-            city = get_location_city()
+            city = get_city_by_location()
             if city:
                 st.session_state.city = city
             st.session_state.ip_location_done = True
             st.rerun()
 
-    # ========== 城市选择区域 ==========
+    # ========== 城市选择 ==========
     st.subheader(f"📍 当前城市：{st.session_state.city}")
 
     col1, col2, col3, col4, col5, col6 = st.columns(6)
@@ -492,7 +504,6 @@ elif menu == "实时天气数据":
             st.session_state.show_aqi = False
             st.rerun()
 
-    # 手动输入
     with st.form(key="city_form"):
         input_city = st.text_input("或手动输入城市名称", placeholder="北京、上海、广州...")
         submit = st.form_submit_button("查询天气")
@@ -506,7 +517,7 @@ elif menu == "实时天气数据":
 
     st.divider()
 
-    # ========== 获取实时天气 ==========
+    # ========== 获取实时天气（心知天气） ==========
     current_time = time.time()
 
     if st.session_state.weather_data is None or current_time - st.session_state.last_request_time > 30:
@@ -516,7 +527,7 @@ elif menu == "实时天气数据":
                 st.session_state.weather_data = weather
                 st.session_state.last_request_time = current_time
             else:
-                st.error(f"无法获取 {st.session_state.city} 的天气信息")
+                st.error(f"无法获取 {st.session_state.city} 的天气信息，请检查城市名称或心知天气密钥")
 
     # 显示实时天气
     if st.session_state.weather_data:
@@ -543,7 +554,7 @@ elif menu == "实时天气数据":
         st.divider()
 
         # ========== 按需加载 ==========
-        st.subheader("📊 更多天气数据")
+        st.subheader("📊 更多天气数据（点击加载）")
 
         col_btn1, col_btn2, col_btn3 = st.columns(3)
 
