@@ -32,7 +32,14 @@ CAROUSEL_IMGS = [
 
 # 轮播图列表（必须定义在轮播模块之前）
 # ========== 图片轮播模块（不会报错的终极版） ==========
+# ========== 图片轮播模块（无报错终极版） ==========
 st.subheader("📷 大兴安岭生态介绍")
+# 初始化轮播状态（防止刷新报错）
+if 'carousel_idx' not in st.session_state:
+    st.session_state.carousel_idx = 0
+if 'last_switch_time' not in st.session_state:
+    st.session_state.last_switch_time = time.time()
+
 # 自动轮播：10秒切换一次
 now_time = time.time()
 if now_time - st.session_state.last_switch_time > 10:
@@ -54,14 +61,14 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# 手动切换按钮
+# 手动切换按钮（加了唯一key，解决重复ID报错）
 col_prev, col_next = st.columns(2)
 with col_prev:
-    if st.button("⬅️ 上一张"):
+    if st.button("⬅️ 上一张", key="carousel_prev_btn"):
         st.session_state.carousel_idx = (st.session_state.carousel_idx - 1) % len(CAROUSEL_IMGS)
         st.rerun()
 with col_next:
-    if st.button("下一张 ➡️"):
+    if st.button("下一张 ➡️", key="carousel_next_btn"):
         st.session_state.carousel_idx = (st.session_state.carousel_idx + 1) % len(CAROUSEL_IMGS)
         st.rerun()
 st.divider()
