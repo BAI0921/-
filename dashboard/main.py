@@ -30,6 +30,43 @@ CAROUSEL_IMGS = [
     ALIYUN_STATIC + "kanshu.png",
     ALIYUN_STATIC + "zhiliduibi.png"
 ]
+# ========== 修复后的图片轮播模块（自动播放+手动切换） ==========
+st.subheader("📷 大兴安岭生态介绍")
+
+# 初始化轮播状态
+if 'carousel_idx' not in st.session_state:
+    st.session_state.carousel_idx = 0
+if 'last_switch_time' not in st.session_state:
+    st.session_state.last_switch_time = time.time()
+
+# 自动轮播：5秒切换一次（检查是否需要切换）
+now_time = time.time()
+if now_time - st.session_state.last_switch_time >= 5:  # 5秒切换，可以改成10秒
+    st.session_state.carousel_idx = (st.session_state.carousel_idx + 1) % len(CAROUSEL_IMGS)
+    st.session_state.last_switch_time = now_time
+    st.rerun()  # 触发页面刷新显示新图片
+
+# 显示当前图片
+current_img = CAROUSEL_IMGS[st.session_state.carousel_idx]
+st.image(current_img, use_container_width=True,
+         caption=f"图文介绍 {st.session_state.carousel_idx + 1}/{len(CAROUSEL_IMGS)}")
+
+# 手动切换按钮
+col1, col2, col3, col4, col5 = st.columns([1,1,1,1,1])
+with col2:
+    if st.button("◀ 上一张", key="prev_btn"):
+        st.session_state.carousel_idx = (st.session_state.carousel_idx - 1) % len(CAROUSEL_IMGS)
+        st.session_state.last_switch_time = time.time()  # 重置计时器
+        st.rerun()
+with col4:
+    if st.button("下一张 ▶", key="next_btn"):
+        st.session_state.carousel_idx = (st.session_state.carousel_idx + 1) % len(CAROUSEL_IMGS)
+        st.session_state.last_switch_time = time.time()  # 重置计时器
+        st.rerun()
+
+# 显示自动播放状态
+st.caption(f"⏰ 自动播放中（每5秒切换） | 第 {st.session_state.carousel_idx + 1}/{len(CAROUSEL_IMGS)} 张")
+st.divider()
 
 from urllib.parse import quote
 
