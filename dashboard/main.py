@@ -91,7 +91,7 @@ if 'is_loading' not in st.session_state:
     st.session_state.is_loading = False
 
 # ==================== 心知天气 V3 配置 ====================
-SENIVERSE_KEY = "PUof6N-OT07myjnhE"
+SENIVERSE_KEY = "SyBQ06H2yR2RIEJn3"
 # ========================================================
 
 # V3 接口地址
