@@ -11,12 +11,13 @@ import base64
 import random
 from datetime import datetime
 import time
+from urllib.parse import quote
 
 warnings.filterwarnings('ignore')
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
 
-# ---------- 阿里云配置（你直接用） ----------
+# ====================== 阿里云图片配置 ======================
 ALIYUN_BG1 = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/daxinganling_bg.png"
 ALIYUN_BG2 = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/weather_bg.png"
 ALIYUN_STATIC = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/"
@@ -26,24 +27,24 @@ CAROUSEL_IMGS = [
     ALIYUN_STATIC + "img2.png",
     ALIYUN_STATIC + "img3.png"
 ]
+# ===========================================================
 
-# ---------- 轮播模块（自动+手动，稳定版） ----------
-# ======================== 自动轮播（单图区域） ========================
+# ======================== 自动轮播（完美版） ========================
 st.subheader("📷 大兴安岭生态介绍")
 
-# 初始化状态
+# 初始化状态（只初始化一次）
 if 'carousel_idx' not in st.session_state:
     st.session_state.carousel_idx = 0
 if 'last_switch_time' not in st.session_state:
     st.session_state.last_switch_time = time.time()
 
-# 自动切换：4秒换一张
+# 自动切换逻辑（4秒）
 now_time = time.time()
 if now_time - st.session_state.last_switch_time > 4:
     st.session_state.carousel_idx = (st.session_state.carousel_idx + 1) % len(CAROUSEL_IMGS)
     st.session_state.last_switch_time = now_time
 
-# 同一位置显示当前图
+# 显示当前图片（同一个位置刷新）
 current_img = CAROUSEL_IMGS[st.session_state.carousel_idx]
 st.image(
     current_img,
@@ -52,17 +53,16 @@ st.image(
 )
 
 # 手动切换按钮
-col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1])
+col1, col2, col3, col4, col5 = st.columns([1,1,2,1,1])
 with col2:
-    if st.button("◀ 上一张", key="prev1"):
+    if st.button("◀ 上一张", key="prev_btn"):
         st.session_state.carousel_idx = (st.session_state.carousel_idx - 1) % len(CAROUSEL_IMGS)
 with col4:
-    if st.button("下一张 ▶", key="next1"):
+    if st.button("下一张 ▶", key="next_btn"):
         st.session_state.carousel_idx = (st.session_state.carousel_idx + 1) % len(CAROUSEL_IMGS)
 
 st.caption("🔄 每4秒自动切换图片")
 st.divider()
-from urllib.parse import quote
 
 
 def set_background(img_url, is_green=False):
