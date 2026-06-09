@@ -18,6 +18,7 @@ plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
 
 # ====================== 阿里云图片配置 ======================
+# ---------- 阿里云配置（你直接用） ----------
 ALIYUN_BG1 = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/daxinganling_bg.png"
 ALIYUN_BG2 = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/weather_bg.png"
 ALIYUN_STATIC = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/"
@@ -27,24 +28,27 @@ CAROUSEL_IMGS = [
     ALIYUN_STATIC + "img2.png",
     ALIYUN_STATIC + "img3.png"
 ]
-# ===========================================================
 
-# ======================== 自动轮播（完美版） ========================
+# ---------- 轮播模块（调整位置+自动轮播） ----------
+# 先加一点空白间距，把内容往下推
+st.markdown("<br><br><br>", unsafe_allow_html=True)
+
+# 轮播标题
 st.subheader("📷 大兴安岭生态介绍")
 
-# 初始化状态（只初始化一次）
+# 初始化状态
 if 'carousel_idx' not in st.session_state:
     st.session_state.carousel_idx = 0
 if 'last_switch_time' not in st.session_state:
     st.session_state.last_switch_time = time.time()
 
-# 自动切换逻辑（4秒）
+# 自动切换：4秒换一张
 now_time = time.time()
 if now_time - st.session_state.last_switch_time > 4:
     st.session_state.carousel_idx = (st.session_state.carousel_idx + 1) % len(CAROUSEL_IMGS)
     st.session_state.last_switch_time = now_time
 
-# 显示当前图片（同一个位置刷新）
+# 显示当前图片（和背景融合，加圆角）
 current_img = CAROUSEL_IMGS[st.session_state.carousel_idx]
 st.image(
     current_img,
@@ -52,8 +56,8 @@ st.image(
     caption=f"图文介绍 {st.session_state.carousel_idx + 1} / {len(CAROUSEL_IMGS)}"
 )
 
-# 手动切换按钮
-col1, col2, col3, col4, col5 = st.columns([1,1,2,1,1])
+# 手动切换按钮（居中对齐）
+col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1])
 with col2:
     if st.button("◀ 上一张", key="prev_btn"):
         st.session_state.carousel_idx = (st.session_state.carousel_idx - 1) % len(CAROUSEL_IMGS)
@@ -64,6 +68,14 @@ with col4:
 st.caption("🔄 每4秒自动切换图片")
 st.divider()
 
+st.markdown("""
+<style>
+img {
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+</style>
+""", unsafe_allow_html=True)
 
 def set_background(img_url, is_green=False):
     # CSS背景链接中文编码
