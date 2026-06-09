@@ -16,57 +16,56 @@ warnings.filterwarnings('ignore')
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
 
-
-# ====================== 阿里云图片链接（修正版） ======================
-# 注意：根据你的OSS目录结构，文件都在 /static/ 下，而不是 /static/static/
+# ---------- 阿里云配置（你直接用） ----------
 ALIYUN_BG1 = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/daxinganling_bg.png"
-ALIYUN_BG2 = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/weather_bg.png"  # 注意这里的文件名也需要核对
+ALIYUN_BG2 = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/weather_bg.png"
 ALIYUN_STATIC = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/"
 
-# 轮播图列表（现在路径正确了）
 CAROUSEL_IMGS = [
     ALIYUN_STATIC + "img1.png",
     ALIYUN_STATIC + "img2.png",
     ALIYUN_STATIC + "img3.png"
 ]
-# ========== 修复后的图片轮播模块（自动播放+手动切换） ==========
+
+# ---------- 轮播模块（自动+手动，稳定版） ----------
 st.subheader("📷 大兴安岭生态介绍")
 
-# 初始化轮播状态
+# 初始化状态
 if 'carousel_idx' not in st.session_state:
     st.session_state.carousel_idx = 0
 if 'last_switch_time' not in st.session_state:
     st.session_state.last_switch_time = time.time()
 
-# 自动轮播：5秒切换一次（检查是否需要切换）
+# 用占位符放图片（关键：只刷新占位符，不整页乱刷）
+img_placeholder = st.empty()
+
+# 自动轮播（5秒）
 now_time = time.time()
-if now_time - st.session_state.last_switch_time >= 5:  # 5秒切换，可以改成10秒
+if now_time - st.session_state.last_switch_time >= 5:
     st.session_state.carousel_idx = (st.session_state.carousel_idx + 1) % len(CAROUSEL_IMGS)
     st.session_state.last_switch_time = now_time
-    st.rerun()  # 触发页面刷新显示新图片
 
 # 显示当前图片
 current_img = CAROUSEL_IMGS[st.session_state.carousel_idx]
-st.image(current_img, use_container_width=True,
-         caption=f"图文介绍 {st.session_state.carousel_idx + 1}/{len(CAROUSEL_IMGS)}")
+img_placeholder.image(
+    current_img,
+    use_container_width=True,
+    caption=f"图文介绍 {st.session_state.carousel_idx + 1}/{len(CAROUSEL_IMGS)}"
+)
 
-# 手动切换按钮
+# 手动按钮（key 唯一，不报错）
 col1, col2, col3, col4, col5 = st.columns([1,1,1,1,1])
 with col2:
     if st.button("◀ 上一张", key="prev_btn"):
         st.session_state.carousel_idx = (st.session_state.carousel_idx - 1) % len(CAROUSEL_IMGS)
-        st.session_state.last_switch_time = time.time()  # 重置计时器
-        st.rerun()
+        st.session_state.last_switch_time = time.time()
 with col4:
     if st.button("下一张 ▶", key="next_btn"):
         st.session_state.carousel_idx = (st.session_state.carousel_idx + 1) % len(CAROUSEL_IMGS)
-        st.session_state.last_switch_time = time.time()  # 重置计时器
-        st.rerun()
+        st.session_state.last_switch_time = time.time()
 
-# 显示自动播放状态
-st.caption(f"⏰ 自动播放中（每5秒切换） | 第 {st.session_state.carousel_idx + 1}/{len(CAROUSEL_IMGS)} 张")
+st.caption("⏰ 自动播放中（每5秒切换）")
 st.divider()
-
 from urllib.parse import quote
 
 
