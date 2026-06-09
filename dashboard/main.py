@@ -31,6 +31,47 @@ CAROUSEL_IMGS = [
     ALIYUN_STATIC + "img3.png"
 ]
 
+
+# 背景样式函数
+def set_background(img_url, is_green=False):
+    safe_url = quote(img_url, safe=':/')
+    green_css = ""
+    if is_green:
+        green_css = """
+        html, body, [data-testid="stAppViewContainer"], .stMarkdown, .stText, 
+        h1, h2, h3, h4, h5, h6, p, div, span, li, .metric-text {
+            color: #00CC66 !important;
+            font-weight: 500 !important;
+        }
+        """
+    st.markdown(f"""
+    <style>
+    {green_css}
+    [data-testid="stAppViewContainer"] {{
+        background-image: url("{safe_url}");
+        background-size: cover !important;
+        background-position: center !important;
+        background-attachment: fixed !important;
+        background-repeat: no-repeat !important;
+        min-height:100vh !important;
+    }}
+    [data-testid="stHeader"]{{background:transparent !important;}}
+    .block-container {{background-color: rgba(0,0,0,0.05) !important;}}
+    </style>
+    """, unsafe_allow_html=True)
+
+
+# 全局状态初始化
+if 'agreed_carbon' not in st.session_state:
+    st.session_state.agreed_carbon = False
+if 'weather_history' not in st.session_state:
+    st.session_state.weather_history = []
+if 'city' not in st.session_state:
+    st.session_state.city = "南通"
+# 轮播状态
+if 'carousel_idx' not in st.session_state:
+    st.session_state.carousel_idx = 0
+
 # ==================== 心知天气 V4 配置 ====================
 # 🔑 请在这里填入你的公钥和私钥（从心知天气控制台获取）
 SENIVERSE_PUBLIC_KEY = "PUof6N-OT07myjnhE"  # 例如: PKwiV7auWJE3iBJ8d
