@@ -89,15 +89,66 @@ if 'show_hourly' not in st.session_state:
     st.session_state.show_hourly = False
 if 'show_aqi' not in st.session_state:
     st.session_state.show_aqi = False
+if 'ip_location_done' not in st.session_state:
+    st.session_state.ip_location_done = False
 
 # ==================== 心知天气 V3 配置 ====================
-SENIVERSE_KEY = "SyBQ06H2yR2RIEJn3"
+SENIVERSE_KEY = "PUof6N-OT07myjnhE"
 # ========================================================
 
 NOW_URL = "https://api.seniverse.com/v3/weather/now.json"
 DAILY_URL = "https://api.seniverse.com/v3/weather/daily.json"
 AQI_URL = "https://api.seniverse.com/v3/air/now.json"
 HOURLY_URL = "https://api.seniverse.com/v3/weather/hourly.json"
+
+
+def wgs84_to_gcj02(lng, lat):
+    """WGS84转GCJ02（火星坐标系）"""
+    PI = math.pi
+    a = 6378245.0
+    ee = 0.006693421622965943
+
+    def transformLat(x, y):
+        ret = -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * math.sqrt(abs(x))
+        ret += (20.0 * math.sin(6.0 * x * PI) + 20.0 * math.sin(2.0 * x * PI)) * 2.0 / 3.0
+        return ret
+
+    def transformLng(x, y):
+        ret = 300.0 + x + 2.0 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * math.sqrt(abs(x))
+        ret += (20.0 * math.sin(6.0 * x * PI) + 20.0 * math.sin(2.0 * x * PI)) * 2.0 / 3.0
+        return ret
+
+    dLat = transformLat(lng - 105.0, lat - 35.0)
+    dLng = transformLng(lng - 105.0, lat - 35.0)
+    radLat = lat / 180.0 * PI
+    magic = math.sin(radLat)
+    magic = 1 - ee * magic * magic
+    sqrtMagic = math.sqrt(magic)
+    dLat = (dLat * 180.0) / ((a * (1 - ee)) / (magic * sqrtMagic) * PI)
+    dLng = (dLng * 180.0) / (a / sqrtMagic * math.cos(radLat) * PI)
+    return lng + dLng, lat + dLat
+
+
+def get_location_city():
+    """获取定位城市（只执行一次）"""
+    try:
+        location = streamlit_geolocation()
+        lat = location.get("latitude")
+        lon = location.get("longitude")
+        if lat and lon:
+            gcj_lon, gcj_lat = wgs84_to_gcj02(lon, lat)
+            amap_key = "e73c79c1fdce8187e310ba247a163ae5"
+            res = requests.get(
+                f"https://restapi.amap.com/v3/geocode/regeo?key={amap_key}&location={gcj_lon},{gcj_lat}&radius=300",
+                timeout=5
+            ).json()
+            if res["status"] == "1":
+                city = res["regeocode"]["addressComponent"]["city"].replace("市", "")
+                if city:
+                    return city
+    except:
+        pass
+    return None
 
 
 def get_weather_now(city):
@@ -118,7 +169,6 @@ def get_weather_now(city):
                 "wind_dir": now.get("wind_direction", "北风")
             }
     except Exception as e:
-        st.error(f"请求失败: {e}")
         return None
     return None
 
@@ -378,9 +428,18 @@ elif menu == "🌲 碳足迹碳中和计算":
 # 实时天气页面
 elif menu == "实时天气数据":
     set_background(ALIYUN_BG2, is_green=False)
-    st.header("🌤 实时天气查询（节能版）")
+    st.header("🌤 实时天气查询")
 
-    # 城市选择
+    # ========== IP定位（只执行一次） ==========
+    if not st.session_state.ip_location_done:
+        with st.spinner("📍 正在获取您的位置..."):
+            city = get_location_city()
+            if city:
+                st.session_state.city = city
+            st.session_state.ip_location_done = True
+            st.rerun()
+
+    # ========== 城市选择区域 ==========
     st.subheader(f"📍 当前城市：{st.session_state.city}")
 
     col1, col2, col3, col4, col5, col6 = st.columns(6)
@@ -435,7 +494,7 @@ elif menu == "实时天气数据":
 
     # 手动输入
     with st.form(key="city_form"):
-        input_city = st.text_input("输入城市名称", placeholder="北京、上海、广州...")
+        input_city = st.text_input("或手动输入城市名称", placeholder="北京、上海、广州...")
         submit = st.form_submit_button("查询天气")
         if submit and input_city.strip():
             st.session_state.city = input_city.strip()
@@ -447,11 +506,10 @@ elif menu == "实时天气数据":
 
     st.divider()
 
-    # 只获取实时天气（每次只发1个请求）
+    # ========== 获取实时天气 ==========
     current_time = time.time()
 
-    # 限制请求频率：至少间隔2秒
-    if st.session_state.weather_data is None or current_time - st.session_state.last_request_time > 10:
+    if st.session_state.weather_data is None or current_time - st.session_state.last_request_time > 30:
         with st.spinner(f"获取 {st.session_state.city} 天气..."):
             weather = get_weather_now(st.session_state.city)
             if weather:
@@ -484,15 +542,37 @@ elif menu == "实时天气数据":
 
         st.divider()
 
-        # ========== 按需加载的模块 ==========
-        st.subheader("📊 更多天气数据（点击加载）")
+        # ========== 按需加载 ==========
+        st.subheader("📊 更多天气数据")
 
-        # 空气质量按钮
-        if not st.session_state.show_aqi:
-            if st.button("🌫️ 加载空气质量"):
-                st.session_state.show_aqi = True
-                st.rerun()
-        else:
+        col_btn1, col_btn2, col_btn3 = st.columns(3)
+
+        with col_btn1:
+            if not st.session_state.show_aqi:
+                if st.button("🌫️ 空气质量", use_container_width=True):
+                    st.session_state.show_aqi = True
+                    st.rerun()
+            else:
+                st.success("✅ 已加载")
+
+        with col_btn2:
+            if not st.session_state.show_daily:
+                if st.button("📅 3天预报", use_container_width=True):
+                    st.session_state.show_daily = True
+                    st.rerun()
+            else:
+                st.success("✅ 已加载")
+
+        with col_btn3:
+            if not st.session_state.show_hourly:
+                if st.button("⏰ 24小时预报", use_container_width=True):
+                    st.session_state.show_hourly = True
+                    st.rerun()
+            else:
+                st.success("✅ 已加载")
+
+        # 显示空气质量
+        if st.session_state.show_aqi:
             with st.spinner("加载空气质量..."):
                 aqi = get_weather_aqi(st.session_state.city)
                 if aqi:
@@ -503,12 +583,8 @@ elif menu == "实时天气数据":
                 else:
                     st.info("该城市暂不支持空气质量数据")
 
-        # 3天预报按钮
-        if not st.session_state.show_daily:
-            if st.button("📅 加载3天预报"):
-                st.session_state.show_daily = True
-                st.rerun()
-        else:
+        # 显示3天预报
+        if st.session_state.show_daily:
             with st.spinner("加载3天预报..."):
                 daily = get_weather_daily(st.session_state.city)
                 if daily:
@@ -526,12 +602,8 @@ elif menu == "实时天气数据":
                 else:
                     st.info("无法获取预报数据")
 
-        # 逐小时预报按钮
-        if not st.session_state.show_hourly:
-            if st.button("⏰ 加载24小时预报"):
-                st.session_state.show_hourly = True
-                st.rerun()
-        else:
+        # 显示逐小时预报
+        if st.session_state.show_hourly:
             with st.spinner("加载逐小时预报..."):
                 hourly = get_weather_hourly(st.session_state.city)
                 if hourly:
