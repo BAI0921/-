@@ -77,132 +77,94 @@ if 'weather_history' not in st.session_state:
     st.session_state.weather_history = []
 if 'city' not in st.session_state:
     st.session_state.city = "南通"
-if 'temp_input_city' not in st.session_state:
-    st.session_state.temp_input_city = ""
-# 轮播状态
 if 'carousel_idx' not in st.session_state:
     st.session_state.carousel_idx = 0
-# 缓存天气数据
-if 'cached_weather' not in st.session_state:
-    st.session_state.cached_weather = {}
-if 'last_update_time' not in st.session_state:
-    st.session_state.last_update_time = 0
-if 'is_loading' not in st.session_state:
-    st.session_state.is_loading = False
+if 'weather_data' not in st.session_state:
+    st.session_state.weather_data = None
+if 'last_request_time' not in st.session_state:
+    st.session_state.last_request_time = 0
+if 'show_daily' not in st.session_state:
+    st.session_state.show_daily = False
+if 'show_hourly' not in st.session_state:
+    st.session_state.show_hourly = False
+if 'show_aqi' not in st.session_state:
+    st.session_state.show_aqi = False
 
 # ==================== 心知天气 V3 配置 ====================
 SENIVERSE_KEY = "SyBQ06H2yR2RIEJn3"
 # ========================================================
 
-# V3 接口地址
 NOW_URL = "https://api.seniverse.com/v3/weather/now.json"
 DAILY_URL = "https://api.seniverse.com/v3/weather/daily.json"
 AQI_URL = "https://api.seniverse.com/v3/air/now.json"
 HOURLY_URL = "https://api.seniverse.com/v3/weather/hourly.json"
 
-# 国外城市映射
-OVERSEAS_MAP = {
-    "纽约": "上海",
-    "伦敦": "北京",
-    "东京": "青岛",
-    "巴黎": "北京",
-    "柏林": "北京",
-    "悉尼": "广州",
-    "新加坡": "香港",
-    "首尔": "青岛",
-}
 
-
-def check_city_type(city):
-    """检查城市是国内还是国外"""
-    oversea_cities = ["纽约", "伦敦", "东京", "巴黎", "柏林", "悉尼", "新加坡", "首尔"]
-    for oc in oversea_cities:
-        if oc in city:
-            return "overseas"
-    return "china"
-
-
-def fetch_weather_data(city):
-    """一次性获取所有天气数据"""
-    # 处理国外城市映射
-    actual_city = city
-    is_overseas = False
-    if check_city_type(city) == "overseas":
-        is_overseas = True
-        for oc, cn in OVERSEAS_MAP.items():
-            if oc in city:
-                actual_city = cn
-                break
-
-    params = {"key": SENIVERSE_KEY, "location": actual_city, "language": "zh-Hans", "unit": "c"}
-
-    # 并行请求所有数据
-    wc = None
-    daily = None
-    aqi = None
-    hourly = None
-
+def get_weather_now(city):
+    """只获取实时天气"""
+    params = {"key": SENIVERSE_KEY, "location": city, "language": "zh-Hans", "unit": "c"}
     try:
-        # 实时天气
-        r1 = requests.get(NOW_URL, params=params, timeout=6)
-        if r1.status_code == 200:
-            data = r1.json()
-            if data.get("results"):
-                now = data["results"][0]["now"]
-                loc = data["results"][0]["location"]
-                wc = {
-                    "name": loc["name"],
-                    "text": now["text"],
-                    "temp": float(now["temperature"]),
-                    "humidity": int(now["humidity"]),
-                    "wind_speed": float(now["wind_speed"]),
-                    "wind_dir": now.get("wind_direction", "北风")
-                }
-    except:
-        pass
+        r = requests.get(NOW_URL, params=params, timeout=8)
+        data = r.json()
+        if data.get("results"):
+            now = data["results"][0]["now"]
+            loc = data["results"][0]["location"]
+            return {
+                "name": loc["name"],
+                "text": now["text"],
+                "temp": float(now["temperature"]),
+                "humidity": int(now["humidity"]),
+                "wind_speed": float(now["wind_speed"]),
+                "wind_dir": now.get("wind_direction", "北风")
+            }
+    except Exception as e:
+        st.error(f"请求失败: {e}")
+        return None
+    return None
 
+
+def get_weather_daily(city):
+    """获取3天预报（按需加载）"""
+    params = {"key": SENIVERSE_KEY, "location": city, "language": "zh-Hans", "unit": "c", "start": 0, "days": 3}
     try:
-        # 逐日预报
-        params_daily = {"key": SENIVERSE_KEY, "location": actual_city, "language": "zh-Hans", "unit": "c", "start": 0,
-                        "days": 3}
-        r2 = requests.get(DAILY_URL, params=params_daily, timeout=6)
-        if r2.status_code == 200:
-            data = r2.json()
-            if data.get("results"):
-                daily = data["results"][0]["daily"]
+        r = requests.get(DAILY_URL, params=params, timeout=8)
+        data = r.json()
+        if data.get("results"):
+            return data["results"][0]["daily"]
     except:
-        pass
+        return None
+    return None
 
-    # 空气质量（仅国内）
-    if not is_overseas:
-        try:
-            params_aqi = {"key": SENIVERSE_KEY, "location": actual_city, "language": "zh-Hans"}
-            r3 = requests.get(AQI_URL, params=params_aqi, timeout=6)
-            if r3.status_code == 200:
-                data = r3.json()
-                if data.get("results"):
-                    aqi_data = data["results"][0]["air"]["city"]
-                    aqi = {
-                        "aqi": int(aqi_data.get("aqi", 0)),
-                        "quality": aqi_data.get("quality", ""),
-                        "pm25": int(aqi_data.get("pm25", 0))
-                    }
-        except:
-            pass
 
+def get_weather_aqi(city):
+    """获取空气质量（按需加载）"""
+    params = {"key": SENIVERSE_KEY, "location": city, "language": "zh-Hans"}
     try:
-        # 逐小时预报
-        params_hourly = {"key": SENIVERSE_KEY, "location": actual_city, "language": "zh-Hans", "unit": "c", "start": 0,
-                         "hours": 24}
-        r4 = requests.get(HOURLY_URL, params=params_hourly, timeout=6)
-        if r4.status_code == 200:
-            data = r4.json()
-            if data.get("results"):
-                hourly = data["results"][0]["hourly"]
+        r = requests.get(AQI_URL, params=params, timeout=8)
+        data = r.json()
+        if data.get("results"):
+            aqi = data["results"][0]["air"]["city"]
+            return {
+                "aqi": int(aqi.get("aqi", 0)),
+                "quality": aqi.get("quality", ""),
+                "pm25": int(aqi.get("pm25", 0))
+            }
     except:
-        pass
+        return None
+    return None
 
-    return wc, daily, aqi, hourly, is_overseas
+
+def get_weather_hourly(city):
+    """获取逐小时预报（按需加载）"""
+    params = {"key": SENIVERSE_KEY, "location": city, "language": "zh-Hans", "unit": "c", "start": 0, "hours": 24}
+    try:
+        r = requests.get(HOURLY_URL, params=params, timeout=8)
+        data = r.json()
+        if data.get("results"):
+            return data["results"][0]["hourly"]
+    except:
+        return None
+    return None
 
 
 def get_weather_icon(text):
@@ -304,7 +266,6 @@ if menu == "大兴安岭气温分析":
         st.info(tip)
 
     st.divider()
-
     st.subheader("📷 大兴安岭生态介绍")
 
     refresh_count = st_autorefresh(interval=4000, key="carousel_autorefresh", limit=None, debounce=True)
@@ -417,125 +378,97 @@ elif menu == "🌲 碳足迹碳中和计算":
 # 实时天气页面
 elif menu == "实时天气数据":
     set_background(ALIYUN_BG2, is_green=False)
-    st.header("🌤 全球实时天气查询")
+    st.header("🌤 实时天气查询（节能版）")
 
-
-    def wgs84_to_gcj02(lng, lat):
-        PI = math.pi
-        a = 6378245.0
-        ee = 0.006693421622965943
-
-        def transformLat(x, y):
-            ret = -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * math.sqrt(abs(x))
-            ret += (20.0 * math.sin(6.0 * x * PI) + 20.0 * math.sin(2.0 * x * PI)) * 2.0 / 3.0
-            return ret
-
-        def transformLng(x, y):
-            ret = 300.0 + x + 2.0 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * math.sqrt(abs(x))
-            ret += (20.0 * math.sin(6.0 * x * PI) + 20.0 * math.sin(2.0 * x * PI)) * 2.0 / 3.0
-            return ret
-
-        dLat = transformLat(lng - 105.0, lat - 35.0)
-        dLng = transformLng(lng - 105.0, lat - 35.0)
-        radLat = lat / 180.0 * PI
-        magic = math.sin(radLat)
-        magic = 1 - ee * magic * magic
-        sqrtMagic = math.sqrt(magic)
-        dLat = (dLat * 180.0) / ((a * (1 - ee)) / (magic * sqrtMagic) * PI)
-        dLng = (dLng * 180.0) / (a / sqrtMagic * math.cos(radLat) * PI)
-        return lng + dLng, lat + dLat
-
-
-    # IP定位（只执行一次）
-    if 'ip_location_done' not in st.session_state:
-        st.session_state.ip_location_done = False
-    if not st.session_state.ip_location_done:
-        location = streamlit_geolocation()
-        lat = location.get("latitude")
-        lon = location.get("longitude")
-        if lat and lon:
-            gcj_lon, gcj_lat = wgs84_to_gcj02(lon, lat)
-            amap_key = "e73c79c1fdce8187e310ba247a163ae5"
-            try:
-                res = requests.get(
-                    f"https://restapi.amap.com/v3/geocode/regeo?key={amap_key}&location={gcj_lon},{gcj_lat}&radius=300",
-                    timeout=5).json()
-                if res["status"] == "1":
-                    auto_city = res["regeocode"]["addressComponent"]["city"].replace("市", "")
-                    if auto_city:
-                        st.session_state.city = auto_city
-            except:
-                pass
-        st.session_state.ip_location_done = True
-
-    # 城市选择区域
+    # 城市选择
     st.subheader(f"📍 当前城市：{st.session_state.city}")
 
     col1, col2, col3, col4, col5, col6 = st.columns(6)
     with col1:
-        if st.button("🏠 南通"):
+        if st.button("南通"):
             st.session_state.city = "南通"
+            st.session_state.weather_data = None
+            st.session_state.show_daily = False
+            st.session_state.show_hourly = False
+            st.session_state.show_aqi = False
             st.rerun()
     with col2:
         if st.button("南京"):
             st.session_state.city = "南京"
+            st.session_state.weather_data = None
+            st.session_state.show_daily = False
+            st.session_state.show_hourly = False
+            st.session_state.show_aqi = False
             st.rerun()
     with col3:
         if st.button("苏州"):
             st.session_state.city = "苏州"
+            st.session_state.weather_data = None
+            st.session_state.show_daily = False
+            st.session_state.show_hourly = False
+            st.session_state.show_aqi = False
             st.rerun()
     with col4:
         if st.button("无锡"):
             st.session_state.city = "无锡"
+            st.session_state.weather_data = None
+            st.session_state.show_daily = False
+            st.session_state.show_hourly = False
+            st.session_state.show_aqi = False
             st.rerun()
     with col5:
         if st.button("泰州"):
             st.session_state.city = "泰州"
+            st.session_state.weather_data = None
+            st.session_state.show_daily = False
+            st.session_state.show_hourly = False
+            st.session_state.show_aqi = False
             st.rerun()
     with col6:
-        if st.button("🗽 纽约"):
-            st.session_state.city = "纽约"
+        if st.button("北京"):
+            st.session_state.city = "北京"
+            st.session_state.weather_data = None
+            st.session_state.show_daily = False
+            st.session_state.show_hourly = False
+            st.session_state.show_aqi = False
             st.rerun()
 
-    # 手动输入城市 - 使用表单避免实时触发
-    st.markdown("**或手动输入城市：**")
+    # 手动输入
     with st.form(key="city_form"):
-        input_city = st.text_input("", placeholder="输入城市名称，如：北京、上海、纽约...", key="city_input")
-        submit_button = st.form_submit_button("🔍 查询天气")
-
-        if submit_button and input_city.strip():
+        input_city = st.text_input("输入城市名称", placeholder="北京、上海、广州...")
+        submit = st.form_submit_button("查询天气")
+        if submit and input_city.strip():
             st.session_state.city = input_city.strip()
+            st.session_state.weather_data = None
+            st.session_state.show_daily = False
+            st.session_state.show_hourly = False
+            st.session_state.show_aqi = False
             st.rerun()
 
     st.divider()
 
-    # 获取天气数据（带缓存，30秒内不重复请求）
+    # 只获取实时天气（每次只发1个请求）
     current_time = time.time()
-    cache_key = st.session_state.city
 
-    if cache_key not in st.session_state.cached_weather or current_time - st.session_state.last_update_time > 30:
-        with st.spinner(f"🌍 正在获取 {st.session_state.city} 的天气数据..."):
-            wc, daily, aqi_data, hourly_data, is_overseas = fetch_weather_data(st.session_state.city)
-            st.session_state.cached_weather[cache_key] = {
-                "wc": wc, "daily": daily, "aqi": aqi_data, "hourly": hourly_data, "is_overseas": is_overseas
-            }
-            st.session_state.last_update_time = current_time
-    else:
-        wc = st.session_state.cached_weather[cache_key]["wc"]
-        daily = st.session_state.cached_weather[cache_key]["daily"]
-        aqi_data = st.session_state.cached_weather[cache_key]["aqi"]
-        hourly_data = st.session_state.cached_weather[cache_key]["hourly"]
-        is_overseas = st.session_state.cached_weather[cache_key]["is_overseas"]
+    # 限制请求频率：至少间隔2秒
+    if st.session_state.weather_data is None or current_time - st.session_state.last_request_time > 10:
+        with st.spinner(f"获取 {st.session_state.city} 天气..."):
+            weather = get_weather_now(st.session_state.city)
+            if weather:
+                st.session_state.weather_data = weather
+                st.session_state.last_request_time = current_time
+            else:
+                st.error(f"无法获取 {st.session_state.city} 的天气信息")
 
-    # 显示天气数据
-    if wc:
-        # 实时天气卡片
+    # 显示实时天气
+    if st.session_state.weather_data:
+        w = st.session_state.weather_data
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("🏙️ 城市", wc["name"])
-        col2.metric("🌤️ 天气", wc["text"])
-        col3.metric("🌡️ 温度", f"{wc['temp']}℃")
-        col4.metric("💧 湿度", f"{wc['humidity']}%")
-        st.caption(f"🌬️ 风向：{wc['wind_dir']} | 风速：{wc['wind_speed']} km/h")
+        col1.metric("🏙️ 城市", w["name"])
+        col2.metric("🌤️ 天气", w["text"])
+        col3.metric("🌡️ 温度", f"{w['temp']}℃")
+        col4.metric("💧 湿度", f"{w['humidity']}%")
+        st.caption(f"🌬️ 风向：{w['wind_dir']} | 风速：{w['wind_speed']} km/h")
 
         st.divider()
 
@@ -543,77 +476,86 @@ elif menu == "实时天气数据":
         st.subheader("💡 生活建议")
         tip1, tip2, tip3 = st.columns(3)
         with tip1:
-            st.info(get_clothing_suggestion(wc['temp']))
+            st.info(get_clothing_suggestion(w['temp']))
         with tip2:
-            st.info(get_sunscreen_suggestion(wc['text']))
+            st.info(get_sunscreen_suggestion(w['text']))
         with tip3:
-            st.info(get_outdoor_suggestion(wc['text'], wc['wind_speed'], wc['temp']))
+            st.info(get_outdoor_suggestion(w['text'], w['wind_speed'], w['temp']))
 
         st.divider()
 
-        # 空气质量
-        if aqi_data:
-            st.subheader("🌫️ 空气质量")
-            a1, a2, a3 = st.columns(3)
-            a1.metric("AQI", aqi_data["aqi"])
-            a2.metric("等级", aqi_data["quality"])
-            a3.metric("PM2.5", f"{aqi_data['pm25']} μg/m³")
-            st.divider()
-        elif not is_overseas:
-            st.warning("无法获取空气质量数据")
+        # ========== 按需加载的模块 ==========
+        st.subheader("📊 更多天气数据（点击加载）")
 
-        # 未来3天预报
-        if daily:
-            st.subheader("📅 未来3天预报")
-            cols = st.columns(3)
-            for i, d in enumerate(daily[:3]):
-                with cols[i]:
-                    st.markdown(f"""
-                    <div style='text-align:center; padding:10px; background:#f0f2f6; border-radius:12px;'>
-                    <b>{d['date'][5:]}</b><br>
-                    <span style='font-size:32px'>{get_weather_icon(d['text_day'])}</span><br>
-                    {d['text_day']}<br>
-                    🌡️ {d['low']}°C ~ {d['high']}°C
-                    </div>
-                    """, unsafe_allow_html=True)
-            st.divider()
+        # 空气质量按钮
+        if not st.session_state.show_aqi:
+            if st.button("🌫️ 加载空气质量"):
+                st.session_state.show_aqi = True
+                st.rerun()
+        else:
+            with st.spinner("加载空气质量..."):
+                aqi = get_weather_aqi(st.session_state.city)
+                if aqi:
+                    a1, a2, a3 = st.columns(3)
+                    a1.metric("AQI", aqi["aqi"])
+                    a2.metric("等级", aqi["quality"])
+                    a3.metric("PM2.5", f"{aqi['pm25']} μg/m³")
+                else:
+                    st.info("该城市暂不支持空气质量数据")
 
-        # 逐小时预报
-        if hourly_data:
-            st.subheader("⏰ 未来24小时逐小时预报")
+        # 3天预报按钮
+        if not st.session_state.show_daily:
+            if st.button("📅 加载3天预报"):
+                st.session_state.show_daily = True
+                st.rerun()
+        else:
+            with st.spinner("加载3天预报..."):
+                daily = get_weather_daily(st.session_state.city)
+                if daily:
+                    cols = st.columns(3)
+                    for i, d in enumerate(daily[:3]):
+                        with cols[i]:
+                            st.markdown(f"""
+                            <div style='text-align:center; padding:10px; background:#f0f2f6; border-radius:12px;'>
+                            <b>{d['date'][5:]}</b><br>
+                            <span style='font-size:32px'>{get_weather_icon(d['text_day'])}</span><br>
+                            {d['text_day']}<br>
+                            🌡️ {d['low']}°C ~ {d['high']}°C
+                            </div>
+                            """, unsafe_allow_html=True)
+                else:
+                    st.info("无法获取预报数据")
 
-            hours_to_show = st.slider("显示小时数", 6, 24, 12)
+        # 逐小时预报按钮
+        if not st.session_state.show_hourly:
+            if st.button("⏰ 加载24小时预报"):
+                st.session_state.show_hourly = True
+                st.rerun()
+        else:
+            with st.spinner("加载逐小时预报..."):
+                hourly = get_weather_hourly(st.session_state.city)
+                if hourly:
+                    hours_to_show = st.slider("显示小时数", 6, 24, 12)
+                    hour_data = hourly[:hours_to_show]
+                    hours = [h['time'][11:16] for h in hour_data]
+                    temps = [int(h['temperature']) for h in hour_data]
 
-            hour_data = hourly_data[:hours_to_show]
-            hours = [h['time'][11:16] for h in hour_data]
-            temps = [int(h['temperature']) for h in hour_data]
+                    fig, ax = plt.subplots(figsize=(12, 4))
+                    ax.plot(hours, temps, marker='o', linewidth=2, color='#FF6B6B')
+                    ax.fill_between(hours, temps, alpha=0.2, color='#FF6B6B')
+                    ax.set_xlabel('时间')
+                    ax.set_ylabel('温度 (℃)')
+                    ax.set_title(f'{st.session_state.city} 温度趋势')
+                    ax.grid(True, alpha=0.3)
+                    plt.xticks(rotation=45)
+                    plt.tight_layout()
+                    st.pyplot(fig)
+                else:
+                    st.info("无法获取逐小时数据")
 
-            fig, ax = plt.subplots(figsize=(12, 4))
-            ax.plot(hours, temps, marker='o', linewidth=2, color='#FF6B6B')
-            ax.fill_between(hours, temps, alpha=0.2, color='#FF6B6B')
-            ax.set_xlabel('时间')
-            ax.set_ylabel('温度 (℃)')
-            ax.set_title(f'{st.session_state.city} 未来{hours_to_show}小时温度趋势')
-            ax.grid(True, alpha=0.3)
-            plt.xticks(rotation=45)
-            plt.tight_layout()
-            st.pyplot(fig)
-
-            with st.expander("📋 查看详细数据"):
-                df = pd.DataFrame({
-                    "时间": hours,
-                    "天气": [h['text'] for h in hour_data],
-                    "温度(℃)": temps
-                })
-                st.dataframe(df, use_container_width=True)
-            st.divider()
+        st.divider()
 
         # 大兴安岭联动
         st.subheader("🌲 大兴安岭生态联动")
-        aqi_val = aqi_data["aqi"] if aqi_data else 70
-        for tip in link_to_daxinganling(wc["temp"], aqi_val, wc["wind_dir"]):
+        for tip in link_to_daxinganling(w['temp'], 70, w['wind_dir']):
             st.success(tip)
-
-    else:
-        st.error(f"❌ 无法获取 {st.session_state.city} 的天气信息，请检查城市名称或稍后再试")
-        st.info("💡 提示：支持中国主要城市，国外城市如纽约、伦敦等也支持")
