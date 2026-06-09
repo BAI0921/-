@@ -5,6 +5,7 @@ import numpy as np
 from sklearn.decomposition import FactorAnalysis
 from sklearn.preprocessing import StandardScaler
 from streamlit_geolocation import streamlit_geolocation
+from streamlit_autorefresh import st_autorefresh
 import warnings
 import requests
 import random
@@ -64,11 +65,9 @@ if 'weather_history' not in st.session_state:
     st.session_state.weather_history = []
 if 'city' not in st.session_state:
     st.session_state.city = "南通"
-# 轮播专属状态
+# 轮播状态
 if 'carousel_idx' not in st.session_state:
     st.session_state.carousel_idx = 0
-if 'last_tick' not in st.session_state:
-    st.session_state.last_tick = time.time()
 
 # 天气接口相关
 SENIVERSE_KEY = "SyBQ06H2yR2RIEJn3"
@@ -215,7 +214,11 @@ if menu == "大兴安岭气温分析":
 
     st.subheader("📷 大兴安岭生态介绍")
 
-    # 自动轮播图
+    # 使用 streamlit-autorefresh 实现自动轮播（每4秒刷新一次）
+    refresh_count = st_autorefresh(interval=4000, key="carousel_autorefresh", limit=None, debounce=True)
+
+    # 用 refresh_count 驱动轮播索引（每次刷新自动切换到下一张）
+    st.session_state.carousel_idx = refresh_count % len(CAROUSEL_IMGS)
     current_idx = st.session_state.carousel_idx
 
     # 显示当前图片和切换按钮
@@ -228,21 +231,13 @@ if menu == "大兴安岭气温分析":
         btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 1])
         with btn_col1:
             if st.button("◀ 上一张", use_container_width=True):
+                # 手动切换时，重置 refresh_count 通过临时修改变量实现
                 st.session_state.carousel_idx = (current_idx - 1) % len(CAROUSEL_IMGS)
-                st.session_state.last_tick = time.time()
                 st.rerun()
         with btn_col2:
             if st.button("▶ 下一张", use_container_width=True):
                 st.session_state.carousel_idx = (current_idx + 1) % len(CAROUSEL_IMGS)
-                st.session_state.last_tick = time.time()
                 st.rerun()
-
-    # 自动轮播：每4秒切换
-    now = time.time()
-    if now - st.session_state.last_tick >= 4:
-        st.session_state.carousel_idx = (current_idx + 1) % len(CAROUSEL_IMGS)
-        st.session_state.last_tick = now
-        st.rerun()
 
     st.caption("🔄 每4秒自动切换图片")
     st.divider()
@@ -289,24 +284,24 @@ if menu == "大兴安岭气温分析":
         c1, c2, c3 = st.columns(3)
         with c1:
             if st.button("🏠 单人租房档"):
-                st.session_state.elec_bill = 80;
-                st.session_state.gas_bill = 30;
-                st.session_state.water_bill = 20;
-                st.session_state.heat_bill = 0;
+                st.session_state.elec_bill = 80
+                st.session_state.gas_bill = 30
+                st.session_state.water_bill = 20
+                st.session_state.heat_bill = 0
                 st.rerun()
         with c2:
             if st.button("👨‍👩‍👧 三口家常档"):
-                st.session_state.elec_bill = 160;
-                st.session_state.gas_bill = 55;
-                st.session_state.water_bill = 35;
-                st.session_state.heat_bill = 260;
+                st.session_state.elec_bill = 160
+                st.session_state.gas_bill = 55
+                st.session_state.water_bill = 35
+                st.session_state.heat_bill = 260
                 st.rerun()
         with c3:
             if st.button("🏡 多人大户型档"):
-                st.session_state.elec_bill = 260;
-                st.session_state.gas_bill = 80;
-                st.session_state.water_bill = 50;
-                st.session_state.heat_bill = 420;
+                st.session_state.elec_bill = 260
+                st.session_state.gas_bill = 80
+                st.session_state.water_bill = 50
+                st.session_state.heat_bill = 420
                 st.rerun()
 
         e = st.number_input("💡 电费", 0, value=st.session_state.elec_bill)
@@ -372,15 +367,15 @@ elif menu == "实时天气数据":
 
     r1c1, r1c2, r1c3, r1c4, r1c5 = st.columns(5)
     with r1c1:
-        if st.button("南通"): st.session_state.city = "南通";st.rerun()
+        if st.button("南通"): st.session_state.city = "南通"; st.rerun()
     with r1c2:
-        if st.button("南京"): st.session_state.city = "南京";st.rerun()
+        if st.button("南京"): st.session_state.city = "南京"; st.rerun()
     with r1c3:
-        if st.button("苏州"): st.session_state.city = "苏州";st.rerun()
+        if st.button("苏州"): st.session_state.city = "苏州"; st.rerun()
     with r1c4:
-        if st.button("无锡"): st.session_state.city = "无锡";st.rerun()
+        if st.button("无锡"): st.session_state.city = "无锡"; st.rerun()
     with r1c5:
-        if st.button("泰州"): st.session_state.city = "泰州";st.rerun()
+        if st.button("泰州"): st.session_state.city = "泰州"; st.rerun()
 
     input_city = st.text_input("✍手动输入城市")
     if input_city.strip() != "":
