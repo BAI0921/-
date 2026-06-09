@@ -12,6 +12,9 @@ import random
 import time
 from urllib.parse import quote
 import math
+import hashlib
+import hmac
+import base64
 
 warnings.filterwarnings('ignore')
 plt.rcParams['font.sans-serif'] = ['SimHei']
@@ -28,93 +31,130 @@ CAROUSEL_IMGS = [
     ALIYUN_STATIC + "img3.png"
 ]
 
+# ==================== 心知天气 V4 配置 ====================
+# 🔑 请在这里填入你的公钥和私钥（从心知天气控制台获取）
+SENIVERSE_PUBLIC_KEY = "PUof6N-OT07myjnhE"  # 例如: PKwiV7auWJE3iBJ8d
+SENIVERSE_PRIVATE_KEY = "SyBQ06H2yR2RIEJn3"  # 例如: SMEieQjde1C9eXnbE
+# ========================================================
 
-# 背景样式函数
-def set_background(img_url, is_green=False):
-    safe_url = quote(img_url, safe=':/')
-    green_css = ""
-    if is_green:
-        green_css = """
-        html, body, [data-testid="stAppViewContainer"], .stMarkdown, .stText, 
-        h1, h2, h3, h4, h5, h6, p, div, span, li, .metric-text {
-            color: #00CC66 !important;
-            font-weight: 500 !important;
-        }
-        """
-    st.markdown(f"""
-    <style>
-    {green_css}
-    [data-testid="stAppViewContainer"] {{
-        background-image: url("{safe_url}");
-        background-size: cover !important;
-        background-position: center !important;
-        background-attachment: fixed !important;
-        background-repeat: no-repeat !important;
-        min-height:100vh !important;
-    }}
-    [data-testid="stHeader"]{{background:transparent !important;}}
-    .block-container {{background-color: rgba(0,0,0,0.05) !important;}}
-    </style>
-    """, unsafe_allow_html=True)
+V4_BASE_URL = "https://api.seniverse.com/v4/"
 
 
-# 全局状态初始化
-if 'agreed_carbon' not in st.session_state:
-    st.session_state.agreed_carbon = False
-if 'weather_history' not in st.session_state:
-    st.session_state.weather_history = []
-if 'city' not in st.session_state:
-    st.session_state.city = "南通"
-# 轮播状态
-if 'carousel_idx' not in st.session_state:
-    st.session_state.carousel_idx = 0
-
-# 天气接口相关
-SENIVERSE_KEY = "SyBQ06H2yR2RIEJn3"
-NOW_URL = "https://api.seniverse.com/v3/weather/now.json"
-DAILY_URL = "https://api.seniverse.com/v3/weather/daily.json"
-AQI_URL = "https://api.seniverse.com/v3/air/now.json"
+def generate_v4_sig(params, private_key):
+    """生成心知天气 V4 接口签名"""
+    sorted_keys = sorted(params.keys())
+    string_to_sign = "&".join([f"{k}={params[k]}" for k in sorted_keys])
+    signature_bytes = hmac.new(
+        private_key.encode('utf-8'),
+        string_to_sign.encode('utf-8'),
+        hashlib.sha1
+    ).digest()
+    sig_base64 = base64.b64encode(signature_bytes).decode('utf-8')
+    return quote(sig_base64, safe='')
 
 
-def seniverse_now(city):
-    params = {"key": SENIVERSE_KEY, "location": city, "language": "zh-Hans", "unit": "c"}
+def seniverse_v4_request(fields, location, start_time=None, hours=None):
+    """
+    通用 V4 接口请求函数
+    fields: 请求的数据类型，如 "weather_now", "weather_daily_3d", "weather_hourly_1h", "air_now"
+    location: 城市名或经纬度（经纬度格式 "纬度:经度"）
+    """
+    # 构建请求参数
+    params = {
+        "public_key": SENIVERSE_PUBLIC_KEY,
+        "ts": int(time.time()),
+        "ttl": 300,
+        "locations": location,
+        "fields": fields
+    }
+
+    # 添加可选参数
+    if start_time:
+        params["start_time"] = start_time
+    if hours:
+        params["hours"] = hours
+
+    # 生成签名
+    sig = generate_v4_sig(params, SENIVERSE_PRIVATE_KEY)
+    params["sig"] = sig
+
     try:
-        r = requests.get(NOW_URL, params=params, timeout=10)
+        r = requests.get(V4_BASE_URL, params=params, timeout=10)
         r.raise_for_status()
         data = r.json()
-        if data.get("results"):
-            now = data["results"][0]["now"]
-            loc = data["results"][0]["location"]
-            return {
-                "name": loc["name"], "text": now["text"], "temp": float(now["temperature"]),
-                "humidity": int(now["humidity"]), "wind": float(now["wind_speed"]),
-                "wind_dir": now.get("wind_direction", "北风")
-            }
-    except:
+        if data.get("results") and len(data["results"]) > 0:
+            return data["results"][0]
+    except Exception as e:
+        st.error(f"V4接口请求失败: {e}")
         return None
+    return None
+
+
+def seniverse_v4_now(city):
+    """获取实时天气（V4版本）"""
+    result = seniverse_v4_request("weather_now", city)
+    if result and result.get("now"):
+        now = result["now"]
+        loc = result["location"]
+        return {
+            "name": loc.get("name", city),
+            "text": now.get("text", ""),
+            "temp": float(now.get("temperature", 0)),
+            "humidity": int(now.get("humidity", 0)),
+            "wind_speed": float(now.get("wind_speed", 0)),
+            "wind_dir": now.get("wind_direction", "北风")
+        }
+    return None
+
+
+def seniverse_v4_daily(city, days=3):
+    """获取逐日天气预报（V4版本）"""
+    fields_map = {3: "weather_daily_3d", 7: "weather_daily_7d", 15: "weather_daily_15d"}
+    fields = fields_map.get(days, "weather_daily_3d")
+    result = seniverse_v4_request(fields, city)
+    if result and result.get("daily"):
+        return result["daily"]
+    return None
+
+
+def seniverse_v4_hourly(city, hours=24):
+    """获取逐小时天气预报（V4版本，未来24-48小时）"""
+    result = seniverse_v4_request("weather_hourly_1h", city, hours=min(hours, 48))
+    if result and result.get("hourly"):
+        return result["hourly"]
+    return None
+
+
+def seniverse_v4_aqi(city):
+    """获取空气质量（V4版本）"""
+    result = seniverse_v4_request("air_now", city)
+    if result and result.get("air"):
+        air = result["air"]
+        city_air = air.get("city", air)
+        return {
+            "aqi": int(city_air.get("aqi", 0)),
+            "quality": city_air.get("quality", ""),
+            "pm25": int(city_air.get("pm25", 0)),
+            "pm10": int(city_air.get("pm10", 0))
+        }
+    return None
+
+
+# 为了兼容老代码，保留原函数名（使用V4实现）
+def seniverse_now(city):
+    return seniverse_v4_now(city)
 
 
 def seniverse_daily(city, days=3):
-    params = {"key": SENIVERSE_KEY, "location": city, "language": "zh-Hans", "unit": "c", "start": 0, "days": days}
-    try:
-        r = requests.get(DAILY_URL, params=params, timeout=10)
-        data = r.json()
-        if data.get("results"):
-            return data["results"][0]["daily"]
-    except:
-        return None
+    return seniverse_v4_daily(city, days)
 
 
 def seniverse_aqi(city):
-    params = {"key": SENIVERSE_KEY, "location": city, "language": "zh-Hans"}
-    try:
-        r = requests.get(AQI_URL, params=params, timeout=10)
-        data = r.json()
-        if data.get("results"):
-            aqi = data["results"][0]["air"]["city"]
-            return {"aqi": int(aqi.get("aqi", 0)), "quality": aqi.get("quality", ""), "pm25": int(aqi.get("pm25", 0))}
-    except:
-        return None
+    return seniverse_v4_aqi(city)
+
+
+def seniverse_hourly(city, hours=24):
+    return seniverse_v4_hourly(city, hours)
 
 
 def get_weather_icon(text):
@@ -231,7 +271,6 @@ if menu == "大兴安岭气温分析":
         btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 1])
         with btn_col1:
             if st.button("◀ 上一张", use_container_width=True):
-                # 手动切换时，重置 refresh_count 通过临时修改变量实现
                 st.session_state.carousel_idx = (current_idx - 1) % len(CAROUSEL_IMGS)
                 st.rerun()
         with btn_col2:
@@ -317,7 +356,7 @@ if menu == "大兴安岭气温分析":
 # 实时天气页面
 elif menu == "实时天气数据":
     set_background(ALIYUN_BG2, is_green=False)
-    st.header("🌤 全球实时天气查询")
+    st.header("🌤 全球实时天气查询（心知天气V4高精度版）")
 
 
     def wgs84_to_gcj02(lng, lat):
@@ -386,6 +425,7 @@ elif menu == "实时天气数据":
         wc = seniverse_now(st.session_state.city)
         daily = seniverse_daily(st.session_state.city, 3)
         aqi_data = seniverse_aqi(st.session_state.city)
+        hourly_data = seniverse_hourly(st.session_state.city, 24)
 
     if wc:
         col1, col2, col3, col4 = st.columns(4)
@@ -415,6 +455,40 @@ elif menu == "实时天气数据":
                     {d['low']}~{d['high']}℃
                     </div>
                     """, unsafe_allow_html=True)
+
+        # 新增：逐小时天气预报（V4专属功能）
+        if hourly_data:
+            st.subheader("⏰ 未来24小时逐小时预报")
+
+            # 让用户选择显示多少小时
+            hours_to_show = st.slider("显示未来多少小时", 6, 24, 12)
+
+            # 提取数据
+            hour_data = hourly_data[:hours_to_show]
+            hours = [h['time'][11:16] for h in hour_data]  # 提取 HH:MM
+            temps = [int(h['temperature']) for h in hour_data]
+            weather_texts = [h['text'] for h in hour_data]
+
+            # 绘制温度变化曲线
+            fig, ax = plt.subplots(figsize=(12, 4))
+            ax.plot(hours, temps, marker='o', linewidth=2, color='#FF6B6B')
+            ax.fill_between(hours, temps, alpha=0.2, color='#FF6B6B')
+            ax.set_xlabel('时间', fontsize=12)
+            ax.set_ylabel('温度 (℃)', fontsize=12)
+            ax.set_title(f'{st.session_state.city} 未来{hours_to_show}小时温度变化趋势', fontsize=14)
+            ax.grid(True, alpha=0.3)
+            plt.xticks(rotation=45, ha='right')
+            plt.tight_layout()
+            st.pyplot(fig)
+
+            # 显示表格形式（折叠）
+            with st.expander("📋 查看详细逐小时数据表格"):
+                hourly_df = pd.DataFrame({
+                    "时间": hours,
+                    "天气": weather_texts,
+                    "温度(℃)": temps
+                })
+                st.dataframe(hourly_df, use_container_width=True)
 
         st.subheader("🌲 大兴安岭生态联动")
         for t in link_to_daxinganling(wc["temp"], aqi_num, wc["wind_dir"]):
