@@ -11,38 +11,31 @@ import base64
 import random
 from datetime import datetime
 import time
-import os
 
 warnings.filterwarnings('ignore')
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
 
-# ====================== 本地图片路径配置 ======================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-STATIC_DIR = os.path.join(BASE_DIR, "static")
+# ====================== 阿里云图片链接（直接用网络地址，不用本地文件） ======================
+ALIYUN_BG1 = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/static/daxinganling_bg.png"
+ALIYUN_BG2 = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/static/weather_bg.png"
+ALIYUN_STATIC = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/static/"
 
-# 背景图路径
-ALIYUN_BG1 = os.path.join(STATIC_DIR, "daxinganling_bg.png")
-ALIYUN_BG2 = os.path.join(STATIC_DIR, "weather_bg.png")
-
-# 轮播图列表（直接用你文件夹里的图片）
+# 轮播图用阿里云上的图片（你文件夹里的图上传到OSS后）
 CAROUSEL_IMGS = [
-    os.path.join(STATIC_DIR, "bingchuan.png"),
-    os.path.join(STATIC_DIR, "daxinganlingshu.png"),
-    os.path.join(STATIC_DIR, "kanshu.png"),
-    os.path.join(STATIC_DIR, "zhiliduibi.png")
+    ALIYUN_STATIC + "bingchuan.png",
+    ALIYUN_STATIC + "daxinganlingshu.png",
+    ALIYUN_STATIC + "kanshu.png",
+    ALIYUN_STATIC + "zhiliduibi.png"
 ]
-# ===========================================================
+# ===========================================================================
 
 from urllib.parse import quote
 
 
-def set_background(img_path, is_green=False):
-    # 读取本地图片并转为base64，解决Streamlit本地背景问题
-    def get_base64(path):
-        with open(path, "rb") as f:
-            return base64.b64encode(f.read()).decode()
-    img_base64 = get_base64(img_path)
+def set_background(img_url, is_green=False):
+    # CSS背景链接中文编码
+    safe_url = quote(img_url, safe=':/')
 
     # 只有 is_green=True 才启用绿色字体
     green_css = ""
@@ -61,7 +54,7 @@ def set_background(img_path, is_green=False):
     {green_css}
 
     [data-testid="stAppViewContainer"] {{
-        background-image: url("data:image/png;base64,{img_base64}");
+        background-image: url("{safe_url}");
         background-size: cover !important;
         background-position: center !important;
         background-attachment: fixed !important;
@@ -73,11 +66,6 @@ def set_background(img_path, is_green=False):
     }}
     .block-container {{
         background-color: rgba(0,0,0,0.05) !important;
-    }}
-    /* 轮播图样式优化 */
-    .carousel-img {{
-        border-radius: 12px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.15);
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -292,7 +280,7 @@ with st.sidebar:
 st.title("📊 大兴安岭环境监测平台")
 
 # ==========================
-# 1. 大兴安岭气温分析（本地轮播版）
+# 1. 大兴安岭气温分析（轮播图版）
 # ==========================
 if menu == "大兴安岭气温分析":
     set_background(ALIYUN_BG1, is_green=True)
@@ -300,7 +288,7 @@ if menu == "大兴安岭气温分析":
     st.info(f"🌲 **今日·大兴安岭**\n\n{get_daily_fact()}")
     st.divider()
 
-    # ========== 图片轮播模块（本地图片） ==========
+    # ========== 图片轮播模块 ==========
     st.subheader("📷 大兴安岭生态介绍")
     # 自动轮播：10秒切换一次
     now_time = time.time()
@@ -324,7 +312,7 @@ if menu == "大兴安岭气温分析":
             st.rerun()
     st.divider()
 
-    # ========== 原有数据分析模块完全保留（读取本地图片） ==========
+    # ========== 原有数据分析模块 ==========
     st.header("🌡 大兴安岭气温数据分析")
     sub_menu = st.selectbox(
         "选择分析类型",
@@ -333,7 +321,7 @@ if menu == "大兴安岭气温分析":
 
 
     def show_image(f):
-        st.image(os.path.join(STATIC_DIR, f))
+        st.image(ALIYUN_STATIC + f)
 
 
     if sub_menu == "2013-2017年气温统计分析":
@@ -431,7 +419,7 @@ if menu == "大兴安岭气温分析":
             "🌲 **大兴安岭森林碳汇价值**\n- 每公顷年固碳≈2.8吨\n- 保护冻土=保护天然碳汇\n- 落叶松是寒带最强固碳树种之一")
 
 # ==========================
-# 2. 实时天气数据（原有代码完全不变）
+# 2. 实时天气数据（原有代码）
 # ==========================
 elif menu == "实时天气数据":
     set_background(ALIYUN_BG2, is_green=False)
