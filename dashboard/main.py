@@ -192,25 +192,34 @@ if menu == "大兴安岭气温分析":
     st.divider()
 
     # ======================== 唯一的轮播（只在这里出现） ========================
-    st.subheader("📷 大兴安岭生态介绍")
-    now_time = time.time()
-    if now_time - st.session_state.last_switch_time > 4:
-        st.session_state.carousel_idx = (st.session_state.carousel_idx + 1) % len(CAROUSEL_IMGS)
-        st.session_state.last_switch_time = now_time
+    if menu == "大兴安岭气温分析":
+        set_background(ALIYUN_BG1, is_green=True)
+        st.info(f"🌲 **今日·大兴安岭**\n\n{get_daily_fact()}")
+        st.divider()
 
-    current_img = CAROUSEL_IMGS[st.session_state.carousel_idx]
-    st.image(current_img, use_container_width=True, caption=f"图文介绍 {st.session_state.carousel_idx + 1}/{len(CAROUSEL_IMGS)}")
+        st.subheader("📷 大兴安岭生态介绍")
 
-    col1, col2, col3, col4, col5 = st.columns([1,1,1,1,1])
-    with col2:
-        if st.button("◀ 上一张", key="prev1"):
-            st.session_state.carousel_idx = (st.session_state.carousel_idx - 1) % len(CAROUSEL_IMGS)
-    with col4:
-        if st.button("下一张 ▶", key="next1"):
-            st.session_state.carousel_idx = (st.session_state.carousel_idx + 1) % len(CAROUSEL_IMGS)
+        # 拼接图片地址为JS数组
+        img_list = [f'"{url}"' for url in CAROUSEL_IMGS]
+        img_js = ",".join(img_list)
 
-    st.caption("🔄 每4秒自动切换")
-    st.divider()
+        # HTML+JS 前端自动轮播（4秒切换，无页面刷新）
+        carousel_html = f"""
+        <div style="text-align:center; max-width:1000px; margin:0 auto;">
+            <img id="loopImg" src="{CAROUSEL_IMGS[0]}" style="width:100%; border-radius:8px;">
+            <p style="margin-top:8px; color:#00CC66;">🔄 每4秒自动切换</p>
+        </div>
+        <script>
+            const imgs = [{img_js}];
+            let idx = 0;
+            setInterval(function(){{
+                idx = (idx + 1) % imgs.length;
+                document.getElementById('loopImg').src = imgs[idx];
+            }}, 4000);
+        </script>
+        """
+        st.markdown(carousel_html, unsafe_allow_html=True)
+        st.divider()
     # ============================================================================
 
     st.header("🌡 大兴安岭气温数据分析")
