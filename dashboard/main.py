@@ -16,66 +16,21 @@ warnings.filterwarnings('ignore')
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
 
-# ====================== 阿里云图片链接 ======================
-ALIYUN_BG1 = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/static/daxinganling_bg.png"
-ALIYUN_BG2 = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/static/weather_bg.png"
-ALIYUN_STATIC = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/static/"
 
-# 轮播图列表（必须定义在轮播模块之前）
+# ====================== 阿里云图片链接（修正版） ======================
+# 注意：根据你的OSS目录结构，文件都在 /static/ 下，而不是 /static/static/
+ALIYUN_BG1 = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/daxinganling_bg.png"
+ALIYUN_BG2 = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/weather_bg.png"  # 注意这里的文件名也需要核对
+ALIYUN_STATIC = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/"
+
+# 轮播图列表（现在路径正确了）
 CAROUSEL_IMGS = [
     ALIYUN_STATIC + "bingchuan.png",
     ALIYUN_STATIC + "daxinganlingshu.png",
     ALIYUN_STATIC + "kanshu.png",
     ALIYUN_STATIC + "zhiliduibi.png"
 ]
-# ===========================================================
 
-# 轮播图列表（必须定义在轮播模块之前）
-# ========== 图片轮播模块（不会报错的终极版） ==========
-# ========== 图片轮播模块（无报错终极版） ==========
-def show_carousel():
-    # 初始化轮播状态
-    if 'carousel_idx' not in st.session_state:
-        st.session_state.carousel_idx = 0
-    if 'last_switch_time' not in st.session_state:
-        st.session_state.last_switch_time = time.time()
-
-    # 自动轮播：5秒切换一次（改成5秒方便测试）
-    now_time = time.time()
-    if now_time - st.session_state.last_switch_time > 5:
-        st.session_state.carousel_idx = (st.session_state.carousel_idx + 1) % len(CAROUSEL_IMGS)
-        st.session_state.last_switch_time = now_time
-
-    # 显示当前图片（使用st.image更稳定）
-    current_img = CAROUSEL_IMGS[st.session_state.carousel_idx]
-
-    # 尝试使用st.image，如果失败则用HTML
-    try:
-        st.image(current_img,
-                 use_container_width=True,  # 注意：新版streamlit用use_container_width代替use_column_width
-                 caption=f"图文介绍 {st.session_state.carousel_idx + 1}/{len(CAROUSEL_IMGS)}")
-    except:
-        # 备选方案：使用HTML img标签
-        st.markdown(f"""
-        <div style="text-align:center; padding:10px;">
-            <img src="{current_img}" 
-                 style="width:100%; max-width:800px; border-radius:12px;" 
-                 alt="大兴安岭生态介绍"
-                 onerror="this.onerror=null; this.src='https://via.placeholder.com/800x400?text=图片加载失败';">
-            <p>图文介绍 {st.session_state.carousel_idx + 1}/{len(CAROUSEL_IMGS)}</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-    # 手动切换按钮
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col1:
-        if st.button("⬅️ 上一张", key="prev_carousel"):
-            st.session_state.carousel_idx = (st.session_state.carousel_idx - 1) % len(CAROUSEL_IMGS)
-            st.rerun()
-    with col3:
-        if st.button("下一张 ➡️", key="next_carousel"):
-            st.session_state.carousel_idx = (st.session_state.carousel_idx + 1) % len(CAROUSEL_IMGS)
-            st.rerun()
 from urllib.parse import quote
 
 
