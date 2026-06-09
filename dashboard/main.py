@@ -16,20 +16,55 @@ warnings.filterwarnings('ignore')
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
 
-# ====================== 阿里云图片链接（直接用网络地址，不用本地文件） ======================
+# ====================== 阿里云图片链接 ======================
 ALIYUN_BG1 = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/static/daxinganling_bg.png"
 ALIYUN_BG2 = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/static/weather_bg.png"
 ALIYUN_STATIC = "https://bairuobing.oss-cn-hangzhou.aliyuncs.com/static/static/"
 
-# 轮播图用阿里云上的图片（你文件夹里的图上传到OSS后）
+# 轮播图列表（必须定义在轮播模块之前）
 CAROUSEL_IMGS = [
     ALIYUN_STATIC + "bingchuan.png",
     ALIYUN_STATIC + "daxinganlingshu.png",
     ALIYUN_STATIC + "kanshu.png",
     ALIYUN_STATIC + "zhiliduibi.png"
 ]
-# ===========================================================================
+# ===========================================================
 
+# 轮播图列表（必须定义在轮播模块之前）
+# ========== 图片轮播模块（不会报错的终极版） ==========
+st.subheader("📷 大兴安岭生态介绍")
+# 自动轮播：10秒切换一次
+now_time = time.time()
+if now_time - st.session_state.last_switch_time > 10:
+    st.session_state.carousel_idx = (st.session_state.carousel_idx + 1) % len(CAROUSEL_IMGS)
+    st.session_state.last_switch_time = now_time
+
+# 用HTML img标签渲染，强制在页面内显示，不触发下载
+current_img = CAROUSEL_IMGS[st.session_state.carousel_idx]
+st.markdown(f"""
+<div style="text-align:center; padding:10px;">
+    <img 
+        src="{current_img}" 
+        style="width:100%; max-width:1000px; border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,0.15);" 
+        alt="大兴安岭生态介绍"
+    >
+    <p style="color:#00CC66; font-size:16px; margin-top:10px;">
+        图文介绍 {st.session_state.carousel_idx + 1}/{len(CAROUSEL_IMGS)}
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
+# 手动切换按钮
+col_prev, col_next = st.columns(2)
+with col_prev:
+    if st.button("⬅️ 上一张"):
+        st.session_state.carousel_idx = (st.session_state.carousel_idx - 1) % len(CAROUSEL_IMGS)
+        st.rerun()
+with col_next:
+    if st.button("下一张 ➡️"):
+        st.session_state.carousel_idx = (st.session_state.carousel_idx + 1) % len(CAROUSEL_IMGS)
+        st.rerun()
+st.divider()
 from urllib.parse import quote
 
 
