@@ -28,6 +28,18 @@ CAROUSEL_IMGS = [
     ALIYUN_STATIC + "img3.png"
 ]
 
+# 节能小贴士
+ENERGY_TIPS = [
+    "💡 空调调高1℃，每年可减少碳排放约20kg",
+    "🔌 电器不用时拔掉插头，待机状态也耗电",
+    "🚰 洗澡水收集起来冲厕所，节水又减碳",
+    "🚶 短距离出行选择步行或骑行，零碳排放",
+    "♻️ 购物自带布袋，减少塑料袋使用",
+    "🥩 每周一天素食，一年可减碳约100kg",
+    "🌿 使用节能灯泡，比普通灯泡省电75%",
+    "📦 快递纸箱重复利用，减少树木砍伐"
+]
+
 
 # 背景样式函数
 def set_background(img_url, is_green=False):
@@ -68,9 +80,13 @@ if 'city' not in st.session_state:
 # 轮播状态
 if 'carousel_idx' not in st.session_state:
     st.session_state.carousel_idx = 0
+# 缓存天气数据，避免重复请求
+if 'cached_weather' not in st.session_state:
+    st.session_state.cached_weather = {}
+if 'last_update_time' not in st.session_state:
+    st.session_state.last_update_time = 0
 
 # ==================== 心知天气 V3 配置 ====================
-# 🔑 使用你的私钥（V3只需要这一个密钥）
 SENIVERSE_KEY = "SyBQ06H2yR2RIEJn3"
 # ========================================================
 
@@ -80,12 +96,42 @@ DAILY_URL = "https://api.seniverse.com/v3/weather/daily.json"
 AQI_URL = "https://api.seniverse.com/v3/air/now.json"
 HOURLY_URL = "https://api.seniverse.com/v3/weather/hourly.json"
 
+# 国外城市映射（心知V3对国外城市支持不好，映射到国内城市）
+OVERSEAS_MAP = {
+    "纽约": "上海",
+    "伦敦": "北京",
+    "东京": "青岛",
+    "巴黎": "北京",
+    "柏林": "北京",
+    "悉尼": "广州",
+    "新加坡": "香港",
+    "首尔": "青岛",
+}
+
+
+def check_city_type(city):
+    """检查城市是国内还是国外"""
+    oversea_cities = ["纽约", "伦敦", "东京", "巴黎", "柏林", "悉尼", "新加坡", "首尔",
+                      "New York", "London", "Tokyo", "Paris", "Berlin", "Sydney", "Singapore", "Seoul"]
+    for oc in oversea_cities:
+        if oc.lower() in city.lower():
+            return "overseas"
+    return "china"
+
 
 def seniverse_now(city):
     """获取实时天气"""
+    # 国外城市映射
+    if check_city_type(city) == "overseas":
+        for oc, cn in OVERSEAS_MAP.items():
+            if oc.lower() in city.lower():
+                st.info(f"🌍 {city} 为国外城市，将显示 {cn} 的天气作为参考")
+                city = cn
+                break
+
     params = {"key": SENIVERSE_KEY, "location": city, "language": "zh-Hans", "unit": "c"}
     try:
-        r = requests.get(NOW_URL, params=params, timeout=10)
+        r = requests.get(NOW_URL, params=params, timeout=8)
         r.raise_for_status()
         data = r.json()
         if data.get("results"):
@@ -99,31 +145,38 @@ def seniverse_now(city):
                 "wind_speed": float(now["wind_speed"]),
                 "wind_dir": now.get("wind_direction", "北风")
             }
-    except Exception as e:
-        st.error(f"实时天气获取失败: {e}")
+    except:
         return None
     return None
 
 
 def seniverse_daily(city, days=3):
     """获取逐日天气预报"""
+    if check_city_type(city) == "overseas":
+        for oc, cn in OVERSEAS_MAP.items():
+            if oc.lower() in city.lower():
+                city = cn
+                break
+
     params = {"key": SENIVERSE_KEY, "location": city, "language": "zh-Hans", "unit": "c", "start": 0, "days": days}
     try:
-        r = requests.get(DAILY_URL, params=params, timeout=10)
+        r = requests.get(DAILY_URL, params=params, timeout=8)
         data = r.json()
         if data.get("results"):
             return data["results"][0]["daily"]
-    except Exception as e:
-        st.error(f"天气预报获取失败: {e}")
+    except:
         return None
     return None
 
 
 def seniverse_aqi(city):
-    """获取空气质量"""
+    """获取空气质量（仅国内城市支持）"""
+    if check_city_type(city) == "overseas":
+        return None
+
     params = {"key": SENIVERSE_KEY, "location": city, "language": "zh-Hans"}
     try:
-        r = requests.get(AQI_URL, params=params, timeout=10)
+        r = requests.get(AQI_URL, params=params, timeout=8)
         data = r.json()
         if data.get("results"):
             aqi = data["results"][0]["air"]["city"]
@@ -132,14 +185,19 @@ def seniverse_aqi(city):
                 "quality": aqi.get("quality", ""),
                 "pm25": int(aqi.get("pm25", 0))
             }
-    except Exception as e:
-        st.error(f"空气质量获取失败: {e}")
+    except:
         return None
     return None
 
 
 def seniverse_hourly(city, hours=24):
     """获取逐小时天气预报"""
+    if check_city_type(city) == "overseas":
+        for oc, cn in OVERSEAS_MAP.items():
+            if oc.lower() in city.lower():
+                city = cn
+                break
+
     params = {
         "key": SENIVERSE_KEY,
         "location": city,
@@ -149,12 +207,11 @@ def seniverse_hourly(city, hours=24):
         "hours": min(hours, 24)
     }
     try:
-        r = requests.get(HOURLY_URL, params=params, timeout=10)
+        r = requests.get(HOURLY_URL, params=params, timeout=8)
         data = r.json()
         if data.get("results"):
             return data["results"][0]["hourly"]
-    except Exception as e:
-        st.error(f"逐小时预报获取失败: {e}")
+    except:
         return None
     return None
 
@@ -243,7 +300,7 @@ def link_to_daxinganling(temp, aqi, wind_dir):
 # 侧边栏菜单
 with st.sidebar:
     st.title("🌍 大兴安岭环境监测系统")
-    menu = st.radio("请选择功能", ["大兴安岭气温分析", "实时天气数据"])
+    menu = st.radio("请选择功能", ["大兴安岭气温分析", "实时天气数据", "🌲 碳足迹碳中和计算"])
 
 # 主标题
 st.title("📊 大兴安岭环境监测平台")
@@ -252,24 +309,25 @@ st.title("📊 大兴安岭环境监测平台")
 if menu == "大兴安岭气温分析":
     set_background(ALIYUN_BG1, is_green=True)
     st.info(f"🌲 **今日·大兴安岭**\n\n{get_daily_fact()}")
+
+    # 显示节能小贴士
+    with st.expander("💚 节能小贴士"):
+        tip = random.choice(ENERGY_TIPS)
+        st.info(tip)
+
     st.divider()
 
     st.subheader("📷 大兴安岭生态介绍")
 
-    # 使用 streamlit-autorefresh 实现自动轮播（每4秒刷新一次）
+    # 使用 streamlit-autorefresh 实现自动轮播
     refresh_count = st_autorefresh(interval=4000, key="carousel_autorefresh", limit=None, debounce=True)
-
-    # 用 refresh_count 驱动轮播索引（每次刷新自动切换到下一张）
     st.session_state.carousel_idx = refresh_count % len(CAROUSEL_IMGS)
     current_idx = st.session_state.carousel_idx
 
-    # 显示当前图片和切换按钮
     col1, col2, col3 = st.columns([1, 8, 1])
     with col2:
         st.image(CAROUSEL_IMGS[current_idx], use_container_width=True,
                  caption=f"📸 大兴安岭生态风光 ({current_idx + 1}/{len(CAROUSEL_IMGS)})")
-
-        # 手动切换按钮
         btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 1])
         with btn_col1:
             if st.button("◀ 上一张", use_container_width=True):
@@ -279,7 +337,6 @@ if menu == "大兴安岭气温分析":
             if st.button("▶ 下一张", use_container_width=True):
                 st.session_state.carousel_idx = (current_idx + 1) % len(CAROUSEL_IMGS)
                 st.rerun()
-
     st.caption("🔄 每4秒自动切换图片")
     st.divider()
 
@@ -287,7 +344,7 @@ if menu == "大兴安岭气温分析":
     st.header("🌡 大兴安岭气温数据分析")
     sub_menu = st.selectbox(
         "选择分析类型",
-        ["2013-2017年气温统计分析", "分年气温时空变化图", "通量与多变量分析", "🌲 生活缴费碳中和计算（新版）"]
+        ["2013-2017年气温统计分析", "分年气温时空变化图", "通量与多变量分析"]
     )
 
 
@@ -298,11 +355,9 @@ if menu == "大兴安岭气温分析":
     if sub_menu == "2013-2017年气温统计分析":
         st.subheader("📈 2013-2017年大兴安岭气温对比与趋势")
         show_image("2013-2017年大兴安岭气温对比图.png")
-
     elif sub_menu == "分年气温时空变化图":
         year = st.selectbox("选择年份", [2013, 2014, 2015, 2016, 2017])
         show_image(f"{year}年大兴安岭气温变化图.png")
-
     elif sub_menu == "通量与多变量分析":
         t1, t2, t3, t4 = st.tabs(["通量数据变化", "变量相关性", "因子载荷矩阵", "主成分分析"])
         with t1:
@@ -315,45 +370,66 @@ if menu == "大兴安岭气温分析":
             show_image("factor_scores_timeseries.png")
             show_image("scree_plot.png")
 
-    elif sub_menu == "🌲 生活缴费碳中和计算（新版）":
-        st.subheader("♻️ 生活缴费一键算碳")
-        if 'elec_bill' not in st.session_state: st.session_state.elec_bill = 0
-        if 'gas_bill' not in st.session_state: st.session_state.gas_bill = 0
-        if 'water_bill' not in st.session_state: st.session_state.water_bill = 0
-        if 'heat_bill' not in st.session_state: st.session_state.heat_bill = 0
+# 碳足迹碳中和计算页面
+elif menu == "🌲 碳足迹碳中和计算":
+    set_background(ALIYUN_BG1, is_green=True)
+    st.header("♻️ 生活缴费一键算碳")
 
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            if st.button("🏠 单人租房档"):
-                st.session_state.elec_bill = 80
-                st.session_state.gas_bill = 30
-                st.session_state.water_bill = 20
-                st.session_state.heat_bill = 0
-                st.rerun()
-        with c2:
-            if st.button("👨‍👩‍👧 三口家常档"):
-                st.session_state.elec_bill = 160
-                st.session_state.gas_bill = 55
-                st.session_state.water_bill = 35
-                st.session_state.heat_bill = 260
-                st.rerun()
-        with c3:
-            if st.button("🏡 多人大户型档"):
-                st.session_state.elec_bill = 260
-                st.session_state.gas_bill = 80
-                st.session_state.water_bill = 50
-                st.session_state.heat_bill = 420
-                st.rerun()
+    # 显示节能小贴士
+    with st.expander("💚 节能小贴士", expanded=True):
+        for tip in ENERGY_TIPS[:4]:
+            st.write(tip)
+    st.divider()
 
-        e = st.number_input("💡 电费", 0, value=st.session_state.elec_bill)
-        g = st.number_input("🔥 燃气费", 0, value=st.session_state.gas_bill)
-        w = st.number_input("🚰 水费", 0, value=st.session_state.water_bill)
-        h = st.number_input("🏠 暖气费", 0, value=st.session_state.heat_bill)
-        ce, cg, cw, ch, total = calculate_from_bill(e, g, w, h)
-        trees = forest_offset(total)
+    if 'elec_bill' not in st.session_state: st.session_state.elec_bill = 0
+    if 'gas_bill' not in st.session_state: st.session_state.gas_bill = 0
+    if 'water_bill' not in st.session_state: st.session_state.water_bill = 0
+    if 'heat_bill' not in st.session_state: st.session_state.heat_bill = 0
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        if st.button("🏠 单人租房档"):
+            st.session_state.elec_bill = 80
+            st.session_state.gas_bill = 30
+            st.session_state.water_bill = 20
+            st.session_state.heat_bill = 0
+            st.rerun()
+    with c2:
+        if st.button("👨‍👩‍👧 三口家常档"):
+            st.session_state.elec_bill = 160
+            st.session_state.gas_bill = 55
+            st.session_state.water_bill = 35
+            st.session_state.heat_bill = 260
+            st.rerun()
+    with c3:
+        if st.button("🏡 多人大户型档"):
+            st.session_state.elec_bill = 260
+            st.session_state.gas_bill = 80
+            st.session_state.water_bill = 50
+            st.session_state.heat_bill = 420
+            st.rerun()
+
+    e = st.number_input("💡 电费 (元)", 0, value=st.session_state.elec_bill)
+    g = st.number_input("🔥 燃气费 (元)", 0, value=st.session_state.gas_bill)
+    w = st.number_input("🚰 水费 (元)", 0, value=st.session_state.water_bill)
+    h = st.number_input("🏠 暖气费 (元)", 0, value=st.session_state.heat_bill)
+
+    ce, cg, cw, ch, total = calculate_from_bill(e, g, w, h)
+    trees = forest_offset(total)
+
+    col1, col2 = st.columns(2)
+    with col1:
         st.metric("✅ 月度总碳排放", f"**{total} kg CO₂**")
+    with col2:
         if total > 0:
-            st.success(f"🌲 需要种植 {trees} 棵落叶松即可碳中和！")
+            st.metric("🌲 需要种植树木", f"{trees} 棵落叶松")
+
+    if total > 0:
+        st.success(f"🌲 种植 {trees} 棵落叶松即可碳中和！")
+
+        # 额外建议
+        if total > 500:
+            st.warning("💡 您的碳排放较高，建议：减少空调使用、选择节能家电、多用公共交通")
 
 # 实时天气页面
 elif menu == "实时天气数据":
@@ -396,17 +472,23 @@ elif menu == "实时天气数据":
         if lat and lon:
             gcj_lon, gcj_lat = wgs84_to_gcj02(lon, lat)
             amap_key = "e73c79c1fdce8187e310ba247a163ae5"
-            res = requests.get(
-                f"https://restapi.amap.com/v3/geocode/regeo?key={amap_key}&location={gcj_lon},{gcj_lat}&radius=300").json()
-            if res["status"] == "1":
-                auto_city = res["regeocode"]["addressComponent"]["city"].replace("市", "")
-                st.session_state.city = auto_city
+            try:
+                res = requests.get(
+                    f"https://restapi.amap.com/v3/geocode/regeo?key={amap_key}&location={gcj_lon},{gcj_lat}&radius=300",
+                    timeout=5).json()
+                if res["status"] == "1":
+                    auto_city = res["regeocode"]["addressComponent"]["city"].replace("市", "")
+                    if auto_city:
+                        st.session_state.city = auto_city
+            except:
+                pass
         st.session_state.ip_location_done = True
 
-    st.subheader(f"📍当前查询城市：{st.session_state.city}")
-    st.divider()
+    st.subheader(f"📍 当前查询城市：{st.session_state.city}")
 
-    r1c1, r1c2, r1c3, r1c4, r1c5 = st.columns(5)
+    # 城市选择按钮
+    st.markdown("**快速选择：**")
+    r1c1, r1c2, r1c3, r1c4, r1c5, r1c6 = st.columns(6)
     with r1c1:
         if st.button("南通"): st.session_state.city = "南通"; st.rerun()
     with r1c2:
@@ -417,37 +499,80 @@ elif menu == "实时天气数据":
         if st.button("无锡"): st.session_state.city = "无锡"; st.rerun()
     with r1c5:
         if st.button("泰州"): st.session_state.city = "泰州"; st.rerun()
+    with r1c6:
+        if st.button("纽约"): st.session_state.city = "纽约"; st.rerun()
 
-    input_city = st.text_input("✍手动输入城市")
+    input_city = st.text_input("✍ 手动输入城市（支持全球主要城市）", placeholder="例如：北京、上海、纽约、伦敦...")
     if input_city.strip() != "":
         st.session_state.city = input_city.strip()
         st.rerun()
 
-    with st.spinner(f"获取 {st.session_state.city} 天气..."):
-        wc = seniverse_now(st.session_state.city)
-        daily = seniverse_daily(st.session_state.city, 3)
-        aqi_data = seniverse_aqi(st.session_state.city)
-        hourly_data = seniverse_hourly(st.session_state.city, 24)
+    st.divider()
+
+    # 使用缓存减少重复请求
+    current_time = time.time()
+    cache_key = st.session_state.city
+
+    # 如果缓存超过30秒，重新获取
+    if cache_key not in st.session_state.cached_weather or current_time - st.session_state.last_update_time > 30:
+        with st.spinner(f"获取 {st.session_state.city} 天气..."):
+            wc = seniverse_now(st.session_state.city)
+            daily = seniverse_daily(st.session_state.city, 3)
+            aqi_data = seniverse_aqi(st.session_state.city)
+            hourly_data = seniverse_hourly(st.session_state.city, 24)
+
+            st.session_state.cached_weather[cache_key] = {
+                "wc": wc, "daily": daily, "aqi": aqi_data, "hourly": hourly_data
+            }
+            st.session_state.last_update_time = current_time
+    else:
+        wc = st.session_state.cached_weather[cache_key]["wc"]
+        daily = st.session_state.cached_weather[cache_key]["daily"]
+        aqi_data = st.session_state.cached_weather[cache_key]["aqi"]
+        hourly_data = st.session_state.cached_weather[cache_key]["hourly"]
 
     if wc:
+        # 实时天气显示
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("🏙 城市", wc["name"])
         col2.metric("🌤 天气", wc["text"])
         col3.metric("🌡 温度", f"{wc['temp']}℃")
         col4.metric("💧 湿度", f"{wc['humidity']}%")
 
-        aqi_num = aqi_data["aqi"] if aqi_data else 70
-        st.subheader("🌫 空气质量 AQI")
+        # 风力和风向
+        st.caption(f"🌬️ 风向：{wc['wind_dir']} | 风速：{wc['wind_speed']} km/h")
+
+        st.divider()
+
+        # 生活建议
+        st.subheader("💡 生活建议")
+        tip_col1, tip_col2, tip_col3 = st.columns(3)
+        with tip_col1:
+            st.info(get_clothing_suggestion(wc['temp']))
+        with tip_col2:
+            st.info(get_sunscreen_suggestion(wc['text']))
+        with tip_col3:
+            st.info(get_outdoor_suggestion(wc['text'], wc['wind_speed'], wc['temp']))
+
+        st.divider()
+
+        # 空气质量（仅国内城市支持）
         if aqi_data:
+            st.subheader("🌫 空气质量 AQI")
             ca1, ca2, ca3 = st.columns(3)
             ca1.metric("AQI", aqi_data["aqi"])
             ca2.metric("等级", aqi_data["quality"])
             ca3.metric("PM2.5", aqi_data["pm25"])
+            st.divider()
+        else:
+            if check_city_type(st.session_state.city) == "overseas":
+                st.info("🌍 国外城市暂不支持空气质量数据")
 
+        # 未来3天预报
         st.subheader("📅 未来3天预报")
         if daily:
             cols = st.columns(3)
-            for i, d in enumerate(daily):
+            for i, d in enumerate(daily[:3]):
                 with cols[i]:
                     st.markdown(f"""
                     <div style='text-align:center; padding:10px; background:#f6f6f6; border-radius:12px;'>
@@ -457,8 +582,9 @@ elif menu == "实时天气数据":
                     {d['low']}~{d['high']}℃
                     </div>
                     """, unsafe_allow_html=True)
+            st.divider()
 
-        # ==================== 逐小时预报（新增） ====================
+        # 逐小时预报
         if hourly_data:
             st.subheader("⏰ 未来24小时逐小时预报")
 
@@ -487,8 +613,12 @@ elif menu == "实时天气数据":
                     "温度(℃)": temps
                 })
                 st.dataframe(hourly_df, use_container_width=True)
-        # ==========================================================
+            st.divider()
 
+        # 大兴安岭生态联动
         st.subheader("🌲 大兴安岭生态联动")
+        aqi_num = aqi_data["aqi"] if aqi_data else 70
         for t in link_to_daxinganling(wc["temp"], aqi_num, wc["wind_dir"]):
             st.success(t)
+    else:
+        st.error(f"❌ 无法获取 {st.session_state.city} 的天气信息，请检查城市名称是否正确")
